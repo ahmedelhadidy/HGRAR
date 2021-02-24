@@ -68,9 +68,9 @@ def one_time_test():
         'min_c': 0.9,
         'min_membership': 0.4
     }
-    hgrar = HyGRAR(0.9, 0.9, 0.4)
+    hgrar = HyGRAR(0.9, 0.9, 0.7)
     hgrar.train(data_set[features],data_set[class_col])
-    predictions  = hgrar.predict(test_data_set,3)
+    predictions  = hgrar.predict(test_data_set,11)
     matrix = Matrix()
     matrix.update_matrix_bulk(predictions)
     print_matrix(matrix, "prediction on ar1")

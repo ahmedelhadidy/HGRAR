@@ -7,13 +7,14 @@ from NR.RFBN import RFBN
 
 def create_ANN_models(dataset, features_col_names, class_col_name, perceptron_init_param = None, rfbn_init_param = None):
     models = []
+    all_unique_labels=[False,True]
     balanced_sets = util.create_balanced_buckets(dataset,class_col_name)
     perceptron_template = 'perceptron_{}'
     rfbn_template = 'rfbn_{}'
     counter=1
     for balanced_set in balanced_sets:
-        models.append(Perceptron(perceptron_template.format(counter), features_col_names, class_col_name,**perceptron_init_param).train(balanced_set))
-        models.append(RFBN(rfbn_template.format(counter), features_col_names, class_col_name, **rfbn_init_param).train(balanced_set))
+        models.append(Perceptron(perceptron_template.format(counter), features_col_names, class_col_name,all_unique_labels,**perceptron_init_param).train(balanced_set))
+        models.append(RFBN(rfbn_template.format(counter), features_col_names, class_col_name,all_unique_labels, **rfbn_init_param).train(balanced_set))
         counter+=1
     return models
 

@@ -69,19 +69,31 @@ class Matrix:
         self.__matrix[CONFUSION_MATRIX_TOT_SAMPLE] += 1
 
     def accuracy(self):
-        return (self.__matrix[CONFUSION_MATRIX_TRUE_POSITIVE] + self.__matrix[CONFUSION_MATRIX_TRUE_NEGATIVE])\
-               / self.__matrix[CONFUSION_MATRIX_TOT_SAMPLE]
+        try:
+            return (self.__matrix[CONFUSION_MATRIX_TRUE_POSITIVE] + self.__matrix[CONFUSION_MATRIX_TRUE_NEGATIVE])\
+                   / self.__matrix[CONFUSION_MATRIX_TOT_SAMPLE]
+        except ZeroDivisionError:
+            return None
 
     def precision(self):
-        return self.__matrix[CONFUSION_MATRIX_TOT_POSITIVE] / self.__matrix[CONFUSION_MATRIX_TOT_PREDICTED_POSITIVE]
+        try:
+            return self.__matrix[CONFUSION_MATRIX_TOT_POSITIVE] / self.__matrix[CONFUSION_MATRIX_TOT_PREDICTED_POSITIVE]
+        except ZeroDivisionError:
+            return None
 
     def specificity(self):
-        return self.__matrix[CONFUSION_MATRIX_TRUE_NEGATIVE] / \
-               (self.__matrix[CONFUSION_MATRIX_TRUE_NEGATIVE] + self.__matrix[CONFUSION_MATRIX_FALSE_POSITIVE])
+        try:
+            return self.__matrix[CONFUSION_MATRIX_TRUE_NEGATIVE] / \
+                   (self.__matrix[CONFUSION_MATRIX_TRUE_NEGATIVE] + self.__matrix[CONFUSION_MATRIX_FALSE_POSITIVE])
+        except ZeroDivisionError:
+            return None
 
     def recall(self):
-        return self.__matrix[CONFUSION_MATRIX_TRUE_POSITIVE] / \
-               (self.__matrix[CONFUSION_MATRIX_TRUE_POSITIVE] + self.__matrix[CONFUSION_MATRIX_FALSE_NEGATIVE])
+        try:
+            return self.__matrix[CONFUSION_MATRIX_TRUE_POSITIVE] / \
+                   (self.__matrix[CONFUSION_MATRIX_TRUE_POSITIVE] + self.__matrix[CONFUSION_MATRIX_FALSE_NEGATIVE])
+        except ZeroDivisionError:
+            return None
 
     def score(self):
         return self.accuracy()

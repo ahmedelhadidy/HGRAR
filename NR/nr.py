@@ -5,11 +5,12 @@ import utils.datapartitional as dp
 
 class ParentNR:
 
-    def __init__(self, identifier: str, features_col_names:[], class_col_name:str, **kwargs):
+    def __init__(self, identifier: str, features_col_names:[], class_col_name:str, all_classes_labels, **kwargs):
         self.classifier= None
         self.identifier = identifier
         self.features_col_names = features_col_names
         self.class_col_name = class_col_name
+        self._labels_encoder = self._build_labels_encoder(all_classes_labels)
         self._classifier_param = kwargs
 
     def train(self,data_set: pd.DataFrame):
@@ -20,7 +21,8 @@ class ParentNR:
     def execute_classifier(self, dataset):
         features_data = dataset[self.features_col_names]
         class_data = dataset[self.class_col_name]
-        self.classifier = self.classifier.fit(features_data, class_data)
+        class_data_encoded = self.transform_y(class_data)
+        self.classifier = self.classifier.fit(features_data, class_data_encoded)
         return self.classifier
 
     def get_x(self, dataset):
@@ -28,6 +30,9 @@ class ParentNR:
 
     def get_y(self, dataset):
         return dataset[self.class_col_name]
+
+    def _build_labels_encoder(self, lables):
+        pass
 
     def init_classifier(self):
         pass
@@ -39,7 +44,7 @@ class ParentNR:
         return res_object
 
     def predict_with_membership_degree(self, test_data):
-        classes = self.classifier.classes_
+        classes = self._labels_encoder.inverse_transform( self.classifier.classes_)
         predictions = predict_array(self.classifier, test_data)
         _result = []
         for pred in predictions:
@@ -47,7 +52,7 @@ class ParentNR:
         return _result
 
     def predict_dataset_with_membership_degree(self, dataset: pd.DataFrame):
-        classes = self.classifier.classes_
+        classes = self._labels_encoder.inverse_transform(self.classifier.classes_)
         predictions = predict(self.classifier, dataset, self.features_col_names)
         _result = []
         for pred in predictions:

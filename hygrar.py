@@ -10,7 +10,7 @@ from utils import matrix
 class HyGRAR:
     PERCEPTRON_INIT_PARAM = {
         'activation':'logistic',
-        'hidden_layer_sizes' : (100,100,100),
+        'hidden_layer_sizes' : (2,2),
         'learning_rate':'constant',
         'learning_rate_init':0.1,
         'momentum':0.1,
@@ -24,7 +24,7 @@ class HyGRAR:
     PFBN_INIT_PARAM = {
         'betas': 1,
         'input_shape': (2,),
-        'use_bias': False,
+        'use_bias': True,
         'loss': 'mean_squared_error',
         'batch_size': 10,
         'epochs':2000
@@ -56,7 +56,8 @@ class HyGRAR:
 
     def predict(self, dataset :pd.DataFrame, grar_count):
         if len(self.interesting_grar_faulty) < grar_count or len(self.interesting_grar_not_faulty) < grar_count:
-            raise Exception('grars lenght less that desired grar length')
+            grar_count = len(self.interesting_grar_faulty) if len(self.interesting_grar_faulty) <= len(self.interesting_grar_not_faulty) \
+                else len(self.interesting_grar_not_faulty)
         sorted_faulty_grar = sorted(self.interesting_grar_faulty, key=lambda gr: gr[1], reverse=True)[0:grar_count]
         sorted_non_faulty_grar = sorted(self.interesting_grar_not_faulty, key=lambda gr: gr[1], reverse=True)[0:grar_count]
         predictions = []
