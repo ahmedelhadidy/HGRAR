@@ -5,42 +5,44 @@ from NR import ann_creator
 from model.grar.operator import OperatorType
 import pandas as pd
 from utils import matrix
+from utils.timer import Timer
 
 
 class HyGRAR:
     PERCEPTRON_INIT_PARAM = {
-        'activation':'logistic',
-        'hidden_layer_sizes' : (2,2),
-        'learning_rate':'constant',
-        'learning_rate_init':0.1,
-        'momentum':0.1,
-        'nesterovs_momentum':False,
-        'solver':'sgd',
-        'max_iter':470,
-        'beta_1':0.1,
-        'validation_fraction':0.2
+        'learning_rate': 0.1,
+        'input_shape': (2,),
+        'batch_size': 10,
+        'epochs': 400,
+        'loss': 'mean_squared_error',
+        'early_stop_patience_ratio':0.5,
+        'early_stop_monitor_metric':'val_loss'
     }
 
     PFBN_INIT_PARAM = {
-        'betas': 1,
+        'betas': 0.5,
+        'centers': 2,
         'input_shape': (2,),
-        'use_bias': True,
-        'loss': 'mean_squared_error',
         'batch_size': 10,
-        'epochs':2000
+        'epochs': 400,
+        'loss': 'mean_squared_error',
+        'early_stop_patience_ratio': 0.5,
+        'early_stop_monitor_metric': 'val_loss'
     }
 
 
-
-    def __init__(self, grar_min_support, grar_min_confidence, grar_min_membership_degree):
+    def __init__(self, grar_min_support, grar_min_confidence, grar_min_membership_degree,nn_model_creation='retrain', rule_max_length=None):
         self.min_support = grar_min_support
         self.min_confidence = grar_min_confidence
         self.min_membership_degree = grar_min_membership_degree
+        self.rule_max_length=rule_max_length
+        self.nn_model_creation_strategy = nn_model_creation
 
     def train(self,x: pd.DataFrame,y: pd.DataFrame):
         self.features_col = x.columns
         self.class_col = y.name
         ann_models = ann_creator.create_ANN_models(pd.concat([x,y],axis=1) , self.features_col, self.class_col,
+                                                   nn_model_strategy=self.nn_model_creation_strategy,
                                                    perceptron_init_param= self.PERCEPTRON_INIT_PARAM,
                                                    rfbn_init_param=self.PFBN_INIT_PARAM )
         operators = []
@@ -54,12 +56,14 @@ class HyGRAR:
         self.interesting_grar_faulty = grar.start(grar_subset['True'].drop(columns=[self.class_col]), operators,
                                               self.min_support,self.min_confidence,self.min_membership_degree, 2)
 
+    @Timer(text="hgrar predict executed in {:.2f} seconds")
     def predict(self, dataset :pd.DataFrame, grar_count):
-        if len(self.interesting_grar_faulty) < grar_count or len(self.interesting_grar_not_faulty) < grar_count:
-            grar_count = len(self.interesting_grar_faulty) if len(self.interesting_grar_faulty) <= len(self.interesting_grar_not_faulty) \
-                else len(self.interesting_grar_not_faulty)
-        sorted_faulty_grar = sorted(self.interesting_grar_faulty, key=lambda gr: gr[1], reverse=True)[0:grar_count]
-        sorted_non_faulty_grar = sorted(self.interesting_grar_not_faulty, key=lambda gr: gr[1], reverse=True)[0:grar_count]
+        faulty_grar_count = grar_count if len(self.interesting_grar_faulty) >= grar_count else len(self.interesting_grar_faulty)
+        non_faulty_grar_count = grar_count if len(self.interesting_grar_not_faulty) >= grar_count else len(self.interesting_grar_not_faulty)
+        sorted_faulty_grar = sorted(self.interesting_grar_faulty, key=lambda gr: gr[1], reverse=True)[0:faulty_grar_count]
+        print('selected faulty grars ', sorted_faulty_grar)
+        sorted_non_faulty_grar = sorted(self.interesting_grar_not_faulty, key=lambda gr: gr[1], reverse=True)[0:non_faulty_grar_count]
+        print('selected non faulty grars ', sorted_non_faulty_grar)
         predictions = []
         for _, row in dataset.iterrows():
             faulty_dist = _calculate_diff(row, sorted_faulty_grar)
@@ -74,6 +78,6 @@ def _calculate_diff(data_row, grar: []):
     n = len(grar)
     for r, m in grar:
         mr = r.calculate_membership_degree(data_row)
-        total_rules_diff += m - mr
+        total_rules_diff += abs(m - mr)
     return total_rules_diff / n
 

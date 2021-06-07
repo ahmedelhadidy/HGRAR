@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer
-from tensorflow.keras.initializers import RandomUniform, Initializer, Constant
+from tensorflow.keras.initializers import RandomUniform, Initializer
 import numpy as np
 
 
@@ -49,40 +49,31 @@ class RBFLayer(Layer):
 
     """
 
-    def __init__(self, output_dim, initializer=None, betas=1.0, **kwargs):
-
+    def __init__(self, output_dim, initializer=None, alpha = 0.5, **kwargs):
         self.output_dim = output_dim
-
-        # betas is either initializer object or float
-        if isinstance(betas, Initializer):
-            self.betas_initializer = betas
+        self.alpha = tf.constant(alpha)
+        if initializer:
+            self.initializer = initializer
         else:
-            self.betas_initializer = Constant(value=betas)
-
-        self.initializer = initializer if initializer else RandomUniform(
-            0.0, 1.0)
-
-        super().__init__(**kwargs)
+            self.initializer =RandomUniform(0.0, 1.0)
+        super(RBFLayer, self).__init__(**kwargs)
 
     def build(self, input_shape):
-
         self.centers = self.add_weight(name='centers',
                                        shape=(self.output_dim, input_shape[1]),
-                                       initializer=self.initializer,
-                                       trainable=True)
-        self.betas = self.add_weight(name='betas',
-                                     shape=(self.output_dim,),
-                                     initializer=self.betas_initializer,
-                                     # initializer='ones',
-                                     trainable=True)
+                                       initializer=self.initializer
+                                      )
 
-        super().build(input_shape)
-
-    def call(self, x):
-
+    def call( self, inputs ):
+        print('======================A7A=========================')
+        cd = tf.transpose(self.centers[0]) - tf.transpose(self.centers[1])
+        dom = (2 * ((self.alpha * tf.reduce_sum(cd ,0)) ** 2)) + tf.constant(10**-8)
         C = tf.expand_dims(self.centers, -1)  # inserts a dimension of 1
-        H = tf.transpose(C-tf.transpose(x))  # matrix of differences
-        return tf.exp(-self.betas * tf.math.reduce_sum(H**2, axis=1))
+        H = tf.transpose(C - tf.transpose(inputs))  # matrix of differences
+        r = tf.exp( tf.math.reduce_sum(H ** 2,1) / dom)
+        return r
+
+
 
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.output_dim)
@@ -96,32 +87,3 @@ class RBFLayer(Layer):
         return dict(list(base_config.items()) + list(config.items()))
 
 
-class LabelLimitLayer(Layer):
-
-    def __init__(self, labels, topn, **kwargs):
-        self.labels = labels
-        self.topn = topn
-        super(LabelLimitLayer, self).__init__(**kwargs)
-
-    def call(self, x):
-        batch_size = tf.shape(x)[0]
-
-        tf_labels = tf.constant([self.labels], dtype="string")
-        tf_labels = tf.tile(tf_labels, [batch_size, 1])
-
-        top_k = tf.nn.top_k(x, k=self.topn, sorted=True, name="top_k").indices
-
-        top_conf = tf.gather(x, top_k, batch_dims=1)
-        top_labels = tf.gather(tf_labels, top_k, batch_dims=1)
-        return [top_conf, top_labels]
-
-    def compute_output_shape(self, input_shape):
-        batch_size = input_shape[0]
-        top_shape = (batch_size, self.topn)
-        return [top_shape, top_shape]
-
-    def get_config(self):
-        config = {'labels': self.labels,
-                  'topn': self.topn}
-        base_config = super(LabelLimitLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))

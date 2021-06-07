@@ -3,6 +3,7 @@ from sklearn.model_selection import LeaveOneOut
 from datetime import datetime
 from utils import datapartitional as util
 from hygrar import HyGRAR
+from utils.timer import Timer
 
 def _prepare_data_set(file_names, base_dir, features_col, class_col):
     data_set = util.concat_datasets_files(file_names, base_dir)
@@ -57,20 +58,21 @@ def test_LOO_CV():
     ar6_matrix = llo_cv(data_set_6[features + [class_col]], features, class_col, **hgrar_attributes)
     print_matrix(ar6_matrix, 'ar6')
 
+@Timer(text="one_time_test executed in {:.2f} seconds")
 def one_time_test():
     features=['unique_operators', 'halstead_vocabulary']
     class_col='defects'
-    data_set = util.concat_datasets_files(['ar3.csv','ar4.csv','ar5.csv','ar6.csv'],base_dire='test_data')
+    data_set = util.concat_datasets_files(['ar1.csv','ar4.csv','ar5.csv','ar6.csv'],base_dire='test_data')
     data_set = data_set[features + [class_col]]
-    test_data_set = util.concat_datasets_files(['ar1.csv'],base_dire='test_data')[features + [class_col]]
+    test_data_set = util.concat_datasets_files(['ar3.csv'],base_dire='test_data')[features + [class_col]]
     hgrar_attributes = {
         'min_s': 0.9,
         'min_c': 0.9,
-        'min_membership': 0.4
+        'min_membership': 0.5
     }
-    hgrar = HyGRAR(0.9, 0.9, 0.7)
+    hgrar = HyGRAR(1, 0.5, 0.0,nn_model_creation='retrain')
     hgrar.train(data_set[features],data_set[class_col])
-    predictions  = hgrar.predict(test_data_set,11)
+    predictions  = hgrar.predict(test_data_set,5)
     matrix = Matrix()
     matrix.update_matrix_bulk(predictions)
     print_matrix(matrix, "prediction on ar1")

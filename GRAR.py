@@ -4,11 +4,9 @@ from model.grar.term import Term
 from model.grar.item import Item
 from model.grar.operator import OperatorType
 from model.grar.arithmetic_operator import ArithmeticOperator
-from model.grar.perceptron_operator import AnnOperator
 from model.grar.operator import Operator
 import model.grar.gRule as gRule
-from NR import ann_creator
-from utils import datapartitional as util
+
 
 
 def start(dataset, operators, min_s, min_c, min_membership, rule_max_length = None):
