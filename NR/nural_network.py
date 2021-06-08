@@ -3,8 +3,14 @@ import os.path as path
 import tensorflow as tf
 from utils.timer import Timer
 from tensorflow.keras.layers.experimental.preprocessing import Normalization
+import utils.filesystem as fs
+
+RFBN_MODELS_PATH= fs.get_relative_to_home('rfbn_models')
+MLP_MODELS_PATH= fs.get_relative_to_home('mlp_models')
 
 class Basic_NN:
+
+    tf.get_logger().setLevel('ERROR')
 
     def __init__(self, name, visualize = False , **kwargs):
         self.identifier = name
@@ -73,17 +79,17 @@ def get_normalizer_layer(input_shape, x):
     return normalizer
 
 import matplotlib.pyplot as plt
-def visualize(history):
+def visualize(history, path):
     fig, (ax1,ax2) = plt.subplots(1,2,figsize=(15, 8))
     fig.tight_layout(pad=4.0)
-    ax1.set_title('Training VS Validation loss')
+
     plt.subplots_adjust(top=0.8)
     color = 'tab:green'
     color_val = 'tab:blue'
 
+    ax1.set_title('Training VS Validation loss')
     ax1.set_xlabel('Epochs')
     ax1.set_ylabel('Loss')
-
     ax1.plot(history.epoch, history.history['loss'], color=color, label='Training')
     ax1.plot(history.epoch,history.history['val_loss'], color=color_val, label='Validation')
 
@@ -94,4 +100,5 @@ def visualize(history):
     ax2.plot(history.epoch,history.history['val_accuracy'], color=color_val, label='Validation')
 
     plt.legend()
-    plt.show()
+    fs.delete(path)
+    plt.savefig(path)

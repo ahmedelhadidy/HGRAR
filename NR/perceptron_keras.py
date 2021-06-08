@@ -1,9 +1,10 @@
-from NR.nural_network import Basic_NN, visualize, get_normalizer_layer
+from NR.nural_network import Basic_NN, visualize, get_normalizer_layer , MLP_MODELS_PATH
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import activations, optimizers
 import tensorflow.keras.metrics as m
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping
+import utils.filesystem as fs
 
 class MLP(Basic_NN):
 
@@ -34,4 +35,4 @@ class MLP(Basic_NN):
         self.train_history = model.fit(x, y, batch_size=params.get('batch_size',10),epochs=epochs,validation_split=0.2,
                                        callbacks=[early_stop_callback])
         if self.visualize:
-            visualize(self.train_history)
+            visualize(self.train_history, fs.join(MLP_MODELS_PATH, self.identifier+'.jpg'))

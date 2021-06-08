@@ -3,7 +3,12 @@ from sklearn.model_selection import LeaveOneOut
 from datetime import datetime
 from utils import datapartitional as util
 from hygrar import HyGRAR
+import utils.timer as timer
 from utils.timer import Timer
+import csv
+from utils import filesystem as fs
+
+timer.ALLOW_LOGGING=False
 
 def _prepare_data_set(file_names, base_dir, features_col, class_col):
     data_set = util.concat_datasets_files(file_names, base_dir)
@@ -58,24 +63,73 @@ def test_LOO_CV():
     ar6_matrix = llo_cv(data_set_6[features + [class_col]], features, class_col, **hgrar_attributes)
     print_matrix(ar6_matrix, 'ar6')
 
+
+def permutations(*args):
+    for item in args:
+        yield item, list([i for i in args if i != item])
+
+def create_result_csv(path, results):
+    rows_list = [['Case study', 'TP', 'FP', 'TN', 'FN', 'Acc', 'Sens', 'Spec', 'Prec', 'AUC']]
+    for test, matrix in results:
+        rows_list.append([test, matrix.get_TP(), matrix.get_FP(), matrix.get_TN(), matrix.get_FN(), matrix.accuracy(),
+                          matrix.recall(), matrix.specificity(), matrix.precision(), matrix.AUC()])
+    with open(path, 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(rows_list)
+
 @Timer(text="one_time_test executed in {:.2f} seconds")
 def one_time_test():
-    features=['unique_operators', 'halstead_vocabulary']
-    class_col='defects'
-    data_set = util.concat_datasets_files(['ar1.csv','ar4.csv','ar5.csv','ar6.csv'],base_dire='test_data')
-    data_set = data_set[features + [class_col]]
-    test_data_set = util.concat_datasets_files(['ar3.csv'],base_dire='test_data')[features + [class_col]]
-    hgrar_attributes = {
-        'min_s': 0.9,
-        'min_c': 0.9,
-        'min_membership': 0.5
+    HyGRAR.PERCEPTRON_INIT_PARAM = {
+        'learning_rate': 0.1,
+        'input_shape': (2,),
+        'batch_size': 50,
+        'epochs': 400,
+        'loss': 'mean_squared_error',
+        'early_stop_patience_ratio': 0.75,
+        'early_stop_monitor_metric': 'val_loss',
+        'decay': 0.1
     }
-    hgrar = HyGRAR(1, 0.5, 0.0,nn_model_creation='retrain')
-    hgrar.train(data_set[features],data_set[class_col])
-    predictions  = hgrar.predict(test_data_set,5)
-    matrix = Matrix()
-    matrix.update_matrix_bulk(predictions)
-    print_matrix(matrix, "prediction on ar1")
+
+    HyGRAR.PFBN_INIT_PARAM = {
+        'betas': 0.5,
+        'centers': 2,
+        'alfa':0.5,
+        'p':1,
+        'learning_rate':0.3,
+        'decay': 0.1,
+        'input_shape': (2,),
+        'batch_size': 10,
+        'epochs': 400,
+        'loss': 'mean_squared_error',
+        'early_stop_patience_ratio': 0.75,
+        'early_stop_monitor_metric': 'val_loss'
+    }
+
+    hgrar_attributes = {
+        'min_s': 1,
+        'min_c': 0.5,
+        'min_membership': 0.001
+    }
+
+    all_data_sets=['ar1.csv','ar3.csv','ar4.csv','ar5.csv','ar6.csv']
+    features = ['unique_operators', 'halstead_vocabulary']
+    class_col = 'defects'
+    results=[]
+    for test, train_list in permutations(*all_data_sets):
+        print('use case : ', test)
+        data_set = util.concat_datasets_files(train_list,base_dire='test_data')
+        data_set = data_set[features + [class_col]]
+        test_data_set = util.concat_datasets_files([test],base_dire='test_data')[features + [class_col]]
+
+        hgrar = HyGRAR(test, hgrar_attributes['min_s'], hgrar_attributes['min_c'], hgrar_attributes['min_membership'] ,
+                       nn_model_creation='retrain')
+        hgrar.train(data_set[features],data_set[class_col])
+        predictions  = hgrar.predict(test_data_set,5)
+        matrix = Matrix()
+        matrix.update_matrix_bulk(predictions)
+        results.append((test, matrix))
+        create_result_csv(fs.get_relative_to_home('results_04.csv'), results)
+        print_matrix(matrix, "prediction on ar1")
 
 
 if __name__ == '__main__':

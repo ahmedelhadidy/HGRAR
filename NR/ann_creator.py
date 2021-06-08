@@ -2,16 +2,16 @@ import utils.datapartitional as util
 from utils.one_hot_encoder import OneHotEncoder
 import pandas as pd
 from NR.perceptron_keras import MLP
-from NR.RFBN import RFBN, kmean_initializer
+from NR.RFBN import RFBN
 from utils import filesystem as fs
+from NR.nural_network import RFBN_MODELS_PATH, MLP_MODELS_PATH
 
 
-RFBN_MODELS_PATH= fs.get_relative_to_home('rfbn_models')
-MLP_MODELS_PATH= fs.get_relative_to_home('mlp_models')
 
-def create_ANN_models(dataset, features_col_names, class_col_name, nn_model_strategy='retrain', perceptron_init_param = None, rfbn_init_param = None):
+
+def create_ANN_models(run_id, dataset, features_col_names, class_col_name, nn_model_strategy='retrain', perceptron_init_param = None, rfbn_init_param = None):
     '''
-
+    :run_id: unique run_id used to save model for specific use case
     :param dataset: training dataset
     :param features_col_names: training data features columns names
     :param class_col_name: training data class column name
@@ -26,20 +26,20 @@ def create_ANN_models(dataset, features_col_names, class_col_name, nn_model_stra
     models = []
     ohenc = OneHotEncoder([False, True])
     balanced_sets = util.create_balanced_buckets(dataset,class_col_name)
-    perceptron_template = 'perceptron_{}'
-    rfbn_template = 'rfbn_{}'
+    perceptron_template = 'perceptron_{}_{}'
+    rfbn_template = 'rfbn_{}_{}'
     counter=1
     for balanced_set in balanced_sets:
-        perceptron_model_name = perceptron_template.format(counter)
-        rbf_model_name = rfbn_template.format(counter)
+        perceptron_model_name = perceptron_template.format(run_id, counter)
+        rbf_model_name = rfbn_template.format(run_id, counter)
 
         x = np.asarray(balanced_set[features_col_names])
         y = ohenc.encode(balanced_set[class_col_name].tolist())
 
-        mlp = _get_nn_model(x, y, perceptron_model_name, MLP, nn_model_strategy, visualise= False, **perceptron_init_param )
+        mlp = _get_nn_model(x, y, perceptron_model_name, MLP, nn_model_strategy, visualise= True, **perceptron_init_param )
         models.append(mlp)
 
-        rfbn = _get_nn_model(x, y, rbf_model_name, RFBN, nn_model_strategy, visualise= False, **rfbn_init_param )
+        rfbn = _get_nn_model(x, y, rbf_model_name, RFBN, nn_model_strategy, visualise= True, **rfbn_init_param )
         models.append(rfbn)
 
         counter+=1

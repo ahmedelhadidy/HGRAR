@@ -108,6 +108,18 @@ class Matrix:
     def AUC(self):
         return (self.recall() + self.specificity()) / 2
 
+    def get_TP( self ):
+        return self.__matrix.get(CONFUSION_MATRIX_TRUE_POSITIVE)
+
+    def get_FP( self ):
+        return self.__matrix.get(CONFUSION_MATRIX_FALSE_POSITIVE)
+
+    def get_TN( self ):
+        return self.__matrix.get(CONFUSION_MATRIX_TRUE_NEGATIVE)
+
+    def get_FN( selsf ):
+        return selsf.__matrix.get(CONFUSION_MATRIX_FALSE_NEGATIVE)
+
     def __str__(self):
         return str(self.__matrix)
 

@@ -1,0 +1,4 @@
+**/__pycache__
+**/venv
+Pipfile.lock
+**/.DS_Store

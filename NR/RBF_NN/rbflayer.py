@@ -49,9 +49,10 @@ class RBFLayer(Layer):
 
     """
 
-    def __init__(self, output_dim, initializer=None, alpha = 0.5, **kwargs):
+    def __init__(self, output_dim, initializer=None, alpha = 0.5, p=1 ,  **kwargs):
         self.output_dim = output_dim
-        self.alpha = tf.constant(alpha)
+        self.alpha = alpha
+        self.p = p
         if initializer:
             self.initializer = initializer
         else:
@@ -66,8 +67,7 @@ class RBFLayer(Layer):
 
     def call( self, inputs ):
         print('======================A7A=========================')
-        cd = tf.transpose(self.centers[0]) - tf.transpose(self.centers[1])
-        dom = (2 * ((self.alpha * tf.reduce_sum(cd ,0)) ** 2)) + tf.constant(10**-8)
+        dom = diff_matrix(self.centers, p= self.p, alpha=self.alpha)
         C = tf.expand_dims(self.centers, -1)  # inserts a dimension of 1
         H = tf.transpose(C - tf.transpose(inputs))  # matrix of differences
         r = tf.exp( tf.math.reduce_sum(H ** 2,1) / dom)
@@ -87,3 +87,17 @@ class RBFLayer(Layer):
         return dict(list(base_config.items()) + list(config.items()))
 
 
+def diff_matrix( centers, p = 1, alpha = 0.5 ):
+    centers_T = tf.transpose(centers)
+    cols = centers_T.shape[1]
+    diffs = []
+    for k in range(cols):
+        removed = tf.concat([centers_T[:,:k], centers_T[:,k+1:]],-1)
+        diff = tf.abs( tf.expand_dims(centers_T[:,k],-1) - removed)
+        onerow = tf.reduce_sum(diff, axis=0)
+        onerowsorted = tf.sort(onerow)
+        diffs.append(tf.slice(onerowsorted,[0,],[p,]))
+    conc = tf.reshape(tf.concat(diffs,0),shape=(-1,p))
+    result = tf.reduce_sum(conc, axis=1)
+    result = 2 * (result * (alpha / p)) ** 2
+    return result

@@ -25,5 +25,9 @@ def delete(*args):
         delete_all_in(filename)
 
 
-def get_relative_to_home(path):
-    return os.path.join(expanduser("~"), path)
+def get_relative_to_home(*args):
+    return os.path.join(expanduser("~"), *args)
+
+
+def join(path, paths):
+    return os.path.join(path, paths)
