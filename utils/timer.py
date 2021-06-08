@@ -6,6 +6,8 @@ import functools
 class TimerError(Exception):
     """A custom exception used to report errors in use of Timer class"""
 
+ALLOW_LOGGING = True
+
 @dataclass
 class Timer(ContextDecorator):
     timers: ClassVar[Dict[str, float]] = dict()
@@ -36,7 +38,7 @@ class Timer(ContextDecorator):
         self._start_time = None
 
         # Report elapsed time
-        if self.logger:
+        if self.logger and ALLOW_LOGGING:
             self.logger(self.text.format(elapsed_time))
         if self.name:
             self.timers[self.name] += elapsed_time

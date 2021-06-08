@@ -6,6 +6,8 @@ from tensorflow.keras.layers.experimental.preprocessing import Normalization
 
 class Basic_NN:
 
+    tf.get_logger().setLevel('ERROR')
+
     def __init__(self, name, visualize = False , **kwargs):
         self.identifier = name
         self.visualize = visualize

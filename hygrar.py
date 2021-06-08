@@ -31,17 +31,18 @@ class HyGRAR:
     }
 
 
-    def __init__(self, grar_min_support, grar_min_confidence, grar_min_membership_degree,nn_model_creation='retrain', rule_max_length=None):
+    def __init__(self, run_id, grar_min_support, grar_min_confidence, grar_min_membership_degree,nn_model_creation='retrain', rule_max_length=None):
         self.min_support = grar_min_support
         self.min_confidence = grar_min_confidence
         self.min_membership_degree = grar_min_membership_degree
         self.rule_max_length=rule_max_length
         self.nn_model_creation_strategy = nn_model_creation
+        self.run_id = run_id
 
     def train(self,x: pd.DataFrame,y: pd.DataFrame):
         self.features_col = x.columns
         self.class_col = y.name
-        ann_models = ann_creator.create_ANN_models(pd.concat([x,y],axis=1) , self.features_col, self.class_col,
+        ann_models = ann_creator.create_ANN_models(self.run_id, pd.concat([x,y],axis=1) , self.features_col, self.class_col,
                                                    nn_model_strategy=self.nn_model_creation_strategy,
                                                    perceptron_init_param= self.PERCEPTRON_INIT_PARAM,
                                                    rfbn_init_param=self.PFBN_INIT_PARAM )

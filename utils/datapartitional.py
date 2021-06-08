@@ -4,6 +4,7 @@ import pandas as pd
 import operator
 import sys as sys
 
+
 def partition(dataset: DataFrame, partitions_count, class_extractor):
     '''
     Partition dataset to number of partitions denoted by partitions_count , and maintain the proportion of eah class
@@ -76,6 +77,7 @@ def create_balanced_buckets(dataset: pd.DataFrame, class_column_name):
 
     return buckets
 
+
 def _random_rows(datasets:[], rare_class_value ,class_column_name , count: int):
     '''
     Get Random rows from DataFrames datasets denoted by count
@@ -112,6 +114,7 @@ def _random_rows(datasets:[], rare_class_value ,class_column_name , count: int):
         print(sys.exc_info())
         return None
 
+
 def create_uniqe_classes_subsets(dataset: pd.DataFrame, class_column_name):
     '''
     split the given dataset by the value of the column denoted by class_column_name
@@ -131,6 +134,7 @@ def concat_datasets(datasets: []):
     if not is_same_datasets(datasets):
         raise Exception('datasets are not identical, can''t merge them')
     return pd.concat(datasets)
+
 
 def concat_datasets_files(datasets_files: [], base_dire=None):
     datasets = []
