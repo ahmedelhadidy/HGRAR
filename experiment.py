@@ -10,6 +10,8 @@ from utils import filesystem as fs
 
 timer.ALLOW_LOGGING=False
 
+timer.ALLOW_LOGGING=False
+
 def _prepare_data_set(file_names, base_dir, features_col, class_col):
     data_set = util.concat_datasets_files(file_names, base_dir)
     data_set = data_set[features_col + [class_col]]
@@ -67,6 +69,7 @@ def test_LOO_CV():
 def permutations(*args):
     for item in args:
         yield item, list([i for i in args if i != item])
+
 
 def create_result_csv(path, results):
     rows_list = [['Case study', 'TP', 'FP', 'TN', 'FN', 'Acc', 'Sens', 'Spec', 'Prec', 'AUC']]

@@ -7,8 +7,6 @@ from utils import filesystem as fs
 from NR.nural_network import RFBN_MODELS_PATH, MLP_MODELS_PATH
 
 
-
-
 def create_ANN_models(run_id, dataset, features_col_names, class_col_name, nn_model_strategy='retrain', perceptron_init_param = None, rfbn_init_param = None):
     '''
     :run_id: unique run_id used to save model for specific use case
