@@ -15,7 +15,6 @@ class AnnOperator(Operator):
 
     def apply(self, *values):
         prediction = self.model.predict_with_membership_degree( np.expand_dims(np.asarray(values),0))[0]
-        member_ship = None
         if self.operator_type == OperatorType.FAULTY:
             member_ship = prediction[True]
         else:

@@ -33,5 +33,3 @@ class OneHotEncoder:
             cls_index = np.argmax(row)
             ret.insert(ind,self.__classes[cls_index])
         return ret
-        return ret
-        return ret

@@ -9,7 +9,6 @@ class GRule:
         self.g_rule_set = []
         self.length = length
 
-
     def add_term(self, term: Term):
         if len(self.g_rule_set) == self.length:
             raise ExceedingGRuleLength('Exceeding defined GRule length %s'.format(self.length))

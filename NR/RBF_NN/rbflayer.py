@@ -62,18 +62,28 @@ class RBFLayer(Layer):
     def build(self, input_shape):
         self.centers = self.add_weight(name='centers',
                                        shape=(self.output_dim, input_shape[1]),
-                                       initializer=self.initializer
+                                       initializer=self.initializer,
+                                       trainable=False
                                       )
+        self.training_weights = self.add_weight(name='training_weights',
+                                       shape=(self.output_dim, input_shape[1]),
+                                       initializer=RandomUniform(0.0, 1.0),
+                                       trainable=True
+                                       )
 
+
+    #def call( self, inputs ):
+    #    dom = diff_matrix(self.centers, p= self.p, alpha=self.alpha) + tf.constant(10**-8)
+    #    C = tf.expand_dims(self.centers, -1)  # inserts a dimension of 1
+    #    H = tf.transpose(C - tf.transpose(inputs))  # matrix of differences
+    #    r = tf.exp( tf.math.reduce_sum(H ** 2,1) / dom)
+    #    return r
     def call( self, inputs ):
-        print('======================A7A=========================')
         dom = diff_matrix(self.centers, p= self.p, alpha=self.alpha)
-        C = tf.expand_dims(self.centers, -1)  # inserts a dimension of 1
-        H = tf.transpose(C - tf.transpose(inputs))  # matrix of differences
-        r = tf.exp( tf.math.reduce_sum(H ** 2,1) / dom)
-        return r
-
-
+        dom =  2 * ((dom * (self.alpha / self.p)) ** 2)
+        distance = euclidean_distance(inputs, self.centers)
+        r = tf.exp( distance **2 / dom)
+        return tf.matmul( r , self.training_weights)
 
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.output_dim)
@@ -88,16 +98,29 @@ class RBFLayer(Layer):
 
 
 def diff_matrix( centers, p = 1, alpha = 0.5 ):
-    centers_T = tf.transpose(centers)
-    cols = centers_T.shape[1]
+    cols = centers.shape[0]
     diffs = []
     for k in range(cols):
-        removed = tf.concat([centers_T[:,:k], centers_T[:,k+1:]],-1)
-        diff = tf.abs( tf.expand_dims(centers_T[:,k],-1) - removed)
-        onerow = tf.reduce_sum(diff, axis=0)
-        onerowsorted = tf.sort(onerow)
+        removed = tf.concat([centers[:k,:], centers[k+1:,:]],0)
+        diff = euclidean_distance( tf.expand_dims (centers[k,:],0), removed)
+        diff = tf.squeeze(diff)
+        if len(diff.shape) > 0 and diff.shape[0] > 1:
+            onerowsorted = tf.sort(diff)
+        else:
+            onerowsorted = tf.reshape(diff, shape=(1,))
         diffs.append(tf.slice(onerowsorted,[0,],[p,]))
     conc = tf.reshape(tf.concat(diffs,0),shape=(-1,p))
     result = tf.reduce_sum(conc, axis=1)
-    result = 2 * (result * (alpha / p)) ** 2
     return result
+
+
+def euclidean_distance(input_data,centers):
+    na = tf.reduce_sum(tf.square(input_data), 1)
+    nb = tf.reduce_sum(tf.square(centers), 1)
+    # na as a row and nb as a co"lumn vectors
+    na = tf.reshape(na, [-1, 1])
+    nb = tf.reshape(nb, [1, -1])
+
+    # return pairwise euclidead difference matrix
+    r = tf.sqrt(tf.maximum(na - 2 * tf.matmul(input_data, centers, False, True) + nb, 0.0))
+    return r

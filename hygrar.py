@@ -46,15 +46,21 @@ class HyGRAR:
                                                    nn_model_strategy=self.nn_model_creation_strategy,
                                                    perceptron_init_param= self.PERCEPTRON_INIT_PARAM,
                                                    rfbn_init_param=self.PFBN_INIT_PARAM )
-        operators = []
+        operators_faulty = []
+        operators_non_faulty = []
+        all = []
         for m in ann_models:
-            operators.append(AnnOperator(OperatorType.FAULTY, m))
-            operators.append(AnnOperator(OperatorType.NON_FAULTY, m))
+            operators_faulty.append(AnnOperator(OperatorType.FAULTY, m))
+            operators_non_faulty.append(AnnOperator(OperatorType.NON_FAULTY, m))
+
+        all.extend(operators_faulty)
+        all.extend(operators_non_faulty)
+
         grar_subset = util.create_uniqe_classes_subsets(pd.concat([x,y],axis=1), self.class_col)
-        self.interesting_grar_not_faulty = grar.start(grar_subset['False'].drop(columns=[self.class_col]), operators,
+        self.interesting_grar_not_faulty = grar.start(grar_subset['False'].drop(columns=[self.class_col]), all,
                                                   self.min_support,self.min_confidence,self.min_membership_degree,2)
 
-        self.interesting_grar_faulty = grar.start(grar_subset['True'].drop(columns=[self.class_col]), operators,
+        self.interesting_grar_faulty = grar.start(grar_subset['True'].drop(columns=[self.class_col]), all,
                                               self.min_support,self.min_confidence,self.min_membership_degree, 2)
 
     @Timer(text="hgrar predict executed in {:.2f} seconds")
@@ -62,16 +68,21 @@ class HyGRAR:
         faulty_grar_count = grar_count if len(self.interesting_grar_faulty) >= grar_count else len(self.interesting_grar_faulty)
         non_faulty_grar_count = grar_count if len(self.interesting_grar_not_faulty) >= grar_count else len(self.interesting_grar_not_faulty)
         sorted_faulty_grar = sorted(self.interesting_grar_faulty, key=lambda gr: gr[1], reverse=True)[0:faulty_grar_count]
-        print('selected faulty grars ', sorted_faulty_grar)
+        print('selected faulty grars \n', print_grars(sorted_faulty_grar))
         sorted_non_faulty_grar = sorted(self.interesting_grar_not_faulty, key=lambda gr: gr[1], reverse=True)[0:non_faulty_grar_count]
-        print('selected non faulty grars ', sorted_non_faulty_grar)
+        print('selected non faulty grars \n', print_grars(sorted_non_faulty_grar))
         predictions = []
         for _, row in dataset.iterrows():
+            print('\n\n data row %s', str(row.values))
+            print('---apply faulty grars---')
             faulty_dist = _calculate_diff(row, sorted_faulty_grar)
+            print('---apply non faulty grars---')
             nonfaulty_dist = _calculate_diff(row, sorted_non_faulty_grar)
             faulty = True if faulty_dist < nonfaulty_dist else False
             r_obj = matrix.create_prediction_obj( row_data = row.values, true_class = row[self.class_col], prediction=faulty )
             predictions.append(r_obj)
+            if faulty != row[self.class_col]:
+                print('wrong prediction')
         return predictions
 
 def _calculate_diff(data_row, grar: []):
@@ -80,5 +91,14 @@ def _calculate_diff(data_row, grar: []):
     for r, m in grar:
         mr = r.calculate_membership_degree(data_row)
         total_rules_diff += abs(m - mr)
-    return total_rules_diff / n
+        print('grar (%s , %f) membership for data is %f'% (str(r),m, mr))
+    avg_diff = total_rules_diff / n
+    print('final grars diff is %f'% avg_diff)
+    return avg_diff
+
+def print_grars(grars):
+    print_str=''
+    for grul, m in grars:
+        print_str+='grule %s with membership %f \n' % (str(grul), m)
+    return print_str
 

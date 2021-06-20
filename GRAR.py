@@ -62,15 +62,19 @@ def __calculate_support_confidence_membership(rule:GRule, dataset, min_membershi
         if __all_rule_items_present(row, rule.get_all_items()):
             s_counter+=1
             membership_degree = rule.calculate_membership_degree(row)
-            if membership_degree>= min_membership:
+            if membership_degree >= min_membership:
                 c_counter+=1
                 m_c += membership_degree
-    return s_counter/n, c_counter/n, m_c/n
+    s_avg = s_counter/n
+    c_avg = c_counter/n
+    m_avg = m_c/n
+    print('grule %s support  %f confidence %f membership %f' % (str(rule), s_avg, c_avg, m_avg))
+    return s_avg, c_avg, m_avg
 
 
 def __all_rule_items_present(data_row, items):
     for item in items:
-        if not data_row[item.category]:
+        if item.category not in data_row:
             return False
     return True
 

@@ -85,54 +85,75 @@ def one_time_test():
     HyGRAR.PERCEPTRON_INIT_PARAM = {
         'learning_rate': 0.1,
         'input_shape': (2,),
-        'batch_size': 50,
-        'epochs': 400,
+        'batch_size': 5,
+        'epochs': 800,
         'loss': 'mean_squared_error',
-        'early_stop_patience_ratio': 0.75,
-        'early_stop_monitor_metric': 'val_loss',
-        'decay': 0.1
+        'early_stop_patience_ratio': 0.7,
+        'early_stop_monitor_metric': 'loss',
+        'decay': 0.1,
+        'momentum': 0.1
     }
 
     HyGRAR.PFBN_INIT_PARAM = {
-        'betas': 0.5,
         'centers': 2,
         'alfa':0.5,
         'p':1,
-        'learning_rate':0.3,
+        'learning_rate':0.1,
         'decay': 0.1,
         'input_shape': (2,),
-        'batch_size': 10,
-        'epochs': 400,
+        'batch_size': 5,
+        'epochs': 800,
         'loss': 'mean_squared_error',
-        'early_stop_patience_ratio': 0.75,
-        'early_stop_monitor_metric': 'val_loss'
+        'early_stop_patience_ratio': 0.7,
+        'early_stop_monitor_metric': 'loss'
     }
 
     hgrar_attributes = {
         'min_s': 1,
         'min_c': 0.5,
-        'min_membership': 0.001
+        'min_membership': 0.1
     }
+    run_id='9'
+    all_data_sets, features, class_col, result_prefix, transformer = usecase_data(1)
 
-    all_data_sets=['ar1.csv','ar3.csv','ar4.csv','ar5.csv','ar6.csv']
-    features = ['unique_operators', 'halstead_vocabulary']
-    class_col = 'defects'
     results=[]
     for test, train_list in permutations(*all_data_sets):
         print('use case : ', test)
         data_set = util.concat_datasets_files(train_list,base_dire='test_data')
+        if transformer:
+            data_set = transformer(data_set)
         data_set = data_set[features + [class_col]]
         test_data_set = util.concat_datasets_files([test],base_dire='test_data')[features + [class_col]]
+        if transformer:
+            test_data_set = transformer(test_data_set)
 
         hgrar = HyGRAR(test, hgrar_attributes['min_s'], hgrar_attributes['min_c'], hgrar_attributes['min_membership'] ,
                        nn_model_creation='retrain')
         hgrar.train(data_set[features],data_set[class_col])
-        predictions  = hgrar.predict(test_data_set,5)
+        predictions  = hgrar.predict(test_data_set,3)
         matrix = Matrix()
         matrix.update_matrix_bulk(predictions)
         results.append((test, matrix))
-        create_result_csv(fs.get_relative_to_home('results_04.csv'), results)
-        print_matrix(matrix, "prediction on ar1")
+        create_result_csv(fs.get_relative_to_home(result_prefix+'_results_'+run_id+'.csv'), results)
+        print_matrix(matrix, "prediction on "+test)
+
+
+def usecase_data(id):
+    if id == 1:
+        all_data_sets = ['ar1.csv', 'ar3.csv', 'ar4.csv', 'ar5.csv', 'ar6.csv']
+        features = ['unique_operators', 'halstead_vocabulary']
+        class_col = 'defects'
+        return  all_data_sets, features, class_col, 'AR', None
+    elif id == 2:
+        def transform( dataset ):
+            faulty = dataset['bug'] > 0
+            dataset.drop(columns='bug')
+            dataset['bug'] = faulty
+            return dataset
+        all_data_sets = ['ant-1.7.csv', 'jedit-3.2.csv', 'jedit-4.0.csv', 'jedit-4.1.csv', 'jedit-4.2.csv','jedit-4.3.csv']
+        features = ['wmc', 'cbo']
+        class_col = 'bug'
+        return all_data_sets, features, class_col, 'jedit_ant', transform
 
 
 if __name__ == '__main__':
