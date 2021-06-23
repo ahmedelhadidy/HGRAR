@@ -23,6 +23,7 @@ def create_ANN_models(run_id, dataset, features_col_names, class_col_name, nn_mo
     '''
     models = []
     ohenc = OneHotEncoder([False, True])
+    dataset = dataset.sample(frac=1).reset_index(drop=True)
     balanced_sets = util.create_balanced_buckets(dataset,class_col_name)
     perceptron_template = 'perceptron_{}_{}'
     rfbn_template = 'rfbn_{}_{}'

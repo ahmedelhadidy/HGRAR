@@ -105,7 +105,8 @@ def visualize(path, history, *args):
     plt.subplots_adjust(top=0.8)
     color = 'tab:green'
     color_val = 'tab:red'
-
+    tick = 50
+    epochs = np.arange(0,history.epoch[-1]+tick,tick)
     cur_row, cur_col = 0, 0
     for index, matrix in enumerate(args):
         if axes_shape_length == 1:
@@ -117,6 +118,7 @@ def visualize(path, history, *args):
         ax.set_ylabel(matrix)
         ax.plot(history.epoch, history.history[matrix], color=color, label='Training')
         ax.plot(history.epoch,history.history['val_'+matrix], color=color_val, label='Validation')
+        ax.set_xticks(epochs)
         cur_row, cur_col = next_cell(cur_row, cur_col, rows, cols)
 
     plt.legend()
@@ -128,7 +130,10 @@ def get_value_wise_subsets(x, y, *args):
     r = []
     for val, percentage in args:
         indexes = np.where((y == val).all(axis=1))[0]
-        percentage_val = math.ceil(len(indexes)*percentage)
+        if isinstance(percentage, int):
+            percentage_val = percentage
+        else:
+            percentage_val = math.ceil(len(indexes)*percentage)
         indexes = indexes[0:percentage_val]
         extr_x = x[indexes]
         extr_y = y[indexes]

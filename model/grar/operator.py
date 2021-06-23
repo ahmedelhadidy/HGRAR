@@ -27,3 +27,6 @@ class Operator:
     def revers(self):
         pass
 
+    def __str__(self):
+        return str(self.operator_type)
+

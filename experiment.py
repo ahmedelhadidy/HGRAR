@@ -82,14 +82,18 @@ def create_result_csv(path, results):
 
 @Timer(text="one_time_test executed in {:.2f} seconds")
 def one_time_test():
+    run_id = '13'
+    all_data_sets, features, class_col, input_shape, result_prefix, transformer = usecase_data(1)
+
     HyGRAR.PERCEPTRON_INIT_PARAM = {
         'learning_rate': 0.1,
-        'input_shape': (2,),
+        'input_shape': input_shape,
         'batch_size': 5,
-        'epochs': 800,
-        'loss': 'mean_squared_error',
-        'early_stop_patience_ratio': 0.7,
-        'early_stop_monitor_metric': 'loss',
+        'epochs': 1200,
+        #'loss': 'mean_squared_error',
+        'loss': 'categorical_crossentropy',
+        'early_stop_patience_ratio': 0.1,
+        'early_stop_monitor_metric': 'val_loss',
         'decay': 0.1,
         'momentum': 0.1
     }
@@ -100,12 +104,13 @@ def one_time_test():
         'p':1,
         'learning_rate':0.1,
         'decay': 0.1,
-        'input_shape': (2,),
+        'input_shape': input_shape,
         'batch_size': 5,
         'epochs': 800,
-        'loss': 'mean_squared_error',
-        'early_stop_patience_ratio': 0.7,
-        'early_stop_monitor_metric': 'loss'
+        #'loss': 'mean_squared_error',
+        'loss': 'categorical_crossentropy',
+        'early_stop_patience_ratio': 0.3,
+        'early_stop_monitor_metric': 'val_loss'
     }
 
     hgrar_attributes = {
@@ -113,8 +118,7 @@ def one_time_test():
         'min_c': 0.5,
         'min_membership': 0.1
     }
-    run_id='9'
-    all_data_sets, features, class_col, result_prefix, transformer = usecase_data(1)
+
 
     results=[]
     for test, train_list in permutations(*all_data_sets):
@@ -130,7 +134,7 @@ def one_time_test():
         hgrar = HyGRAR(test, hgrar_attributes['min_s'], hgrar_attributes['min_c'], hgrar_attributes['min_membership'] ,
                        nn_model_creation='retrain')
         hgrar.train(data_set[features],data_set[class_col])
-        predictions  = hgrar.predict(test_data_set,3)
+        predictions  = hgrar.predict(test_data_set,5)
         matrix = Matrix()
         matrix.update_matrix_bulk(predictions)
         results.append((test, matrix))
@@ -143,7 +147,7 @@ def usecase_data(id):
         all_data_sets = ['ar1.csv', 'ar3.csv', 'ar4.csv', 'ar5.csv', 'ar6.csv']
         features = ['unique_operators', 'halstead_vocabulary']
         class_col = 'defects'
-        return  all_data_sets, features, class_col, 'AR', None
+        return  all_data_sets, features, class_col,(len(features),) , 'AR', None
     elif id == 2:
         def transform( dataset ):
             faulty = dataset['bug'] > 0
@@ -153,7 +157,7 @@ def usecase_data(id):
         all_data_sets = ['ant-1.7.csv', 'jedit-3.2.csv', 'jedit-4.0.csv', 'jedit-4.1.csv', 'jedit-4.2.csv','jedit-4.3.csv']
         features = ['wmc', 'cbo']
         class_col = 'bug'
-        return all_data_sets, features, class_col, 'jedit_ant', transform
+        return all_data_sets, features, class_col,(len(features),) , 'jedit_ant', transform
 
 
 if __name__ == '__main__':

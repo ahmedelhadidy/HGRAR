@@ -5,11 +5,11 @@ from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.optimizers import RMSprop, Adam
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import activations
-from NR.nural_network import Basic_NN, get_normalizer_layer, visualize, RFBN_MODELS_PATH , get_value_wise_subsets
+from NR.nural_network import Basic_NN, get_normalizer_layer, visualize, RFBN_MODELS_PATH
 import tensorflow.keras.metrics as m
 from tensorflow.keras.callbacks import EarlyStopping
 import utils.filesystem as fs
-
+from tensorflow.keras import regularizers
 
 
 class RFBN(Basic_NN):
@@ -25,8 +25,9 @@ class RFBN(Basic_NN):
         opt_adam = Adam(learning_rate=0.05)
         model = Sequential([
             normalization_layer,
-            RBFLayer(params.pop('centers', 2), alpha=params.get('alfa', 0.5) , p=params.get('p', 1), initializer=initializer,name=self.RBF_LAYER_NAME),
-            Dense(2,  activation=activations.softmax)
+            RBFLayer(params.pop('centers', 2), alpha=params.get('alfa', 0.5) , p=params.get('p', 1),
+                     initializer=initializer,name=self.RBF_LAYER_NAME),
+            Dense(2,  activation=activations.softmax, kernel_regularizer=regularizers.l2(1e-4))
         ])
         model.compile(loss=params.get('loss','binary_crossentropy'), optimizer=opt_rmsprop,
                       metrics=['accuracy',m.Recall(name='recall'), m.Precision(name='precision')], run_eagerly=False)

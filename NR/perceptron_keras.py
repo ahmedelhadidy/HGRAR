@@ -5,6 +5,7 @@ import tensorflow.keras.metrics as m
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping
 import utils.filesystem as fs
+from tensorflow.keras import regularizers
 
 class MLP(Basic_NN):
 
@@ -14,12 +15,18 @@ class MLP(Basic_NN):
         normalization_layer = get_normalizer_layer(params.get('input_shape', (2,)), x)
         model = Sequential([
             normalization_layer,
-            tf.keras.layers.Dense(2, activation=activations.sigmoid),
-            tf.keras.layers.Dense(2, activation=activations.softmax)
+            tf.keras.layers.Dense(2, activation=activations.sigmoid,
+                                  kernel_regularizer=regularizers.l2(1e-4)
+                                  ),
+            tf.keras.layers.Dense(2, activation=activations.softmax,
+                                  kernel_regularizer=regularizers.l2(1e-4)
+                                  )
         ])
 
-        opt= optimizers.RMSprop(learning_rate=params.get('learning_rate',0.1), momentum=params.get('momentum',0.0),
-                                decay=params.get('decay',0.1))
+        opt= optimizers.RMSprop(learning_rate=params.get('learning_rate',0.1), momentum=params.get('momentum',0.0),decay=params.get('decay',0.1))
+
+        #opt = optimizers.Adam(learning_rate=params.get('learning_rate', 0.1),decay=params.get('decay',0.1))
+
         model.compile(loss=params.get('loss', 'binary_crossentropy'), optimizer=opt,  metrics=['accuracy', m.Precision(name='precision'),
                                                                                                m.Recall(name='recall')])
         model.summary()

@@ -3,7 +3,8 @@ from NR.RFBN import RBFLayer, InitCentersRandom
 import numpy as np
 from tensorflow.keras.layers.experimental.preprocessing import Normalization
 from NR.RFBN import kmean_initializer
-
+import os.path as path
+import csv
 from tensorflow.keras.initializers import Initializer
 
 
@@ -154,9 +155,54 @@ def get(x, y, *args):
     r.insert(0,x)
     return  tuple(r)
 
+from NR.nural_network import RFBN_MODELS_PATH, MLP_MODELS_PATH
+from NR.perceptron_keras import MLP
+from NR.RFBN import RFBN
+
+
+def _test_model(type, name , data):
+    if type == MLP:
+        model = MLP(name=name)
+        model.load_models(MLP_MODELS_PATH)
+    else:
+        model = RFBN(name=name)
+        model.load_models(RFBN_MODELS_PATH)
+    p = model.predict_with_membership_degree(np.array(data))
+    print('%s prediction is %s'%(name, str(p)))
+
+
+def test_model():
+    data = np.array([[15, 49]])
+    _test_model(MLP, 'perceptron_ar1.csv_1', data)
+    _test_model(MLP, 'perceptron_ar1.csv_2', data)
+    _test_model(MLP, 'perceptron_ar1.csv_3', data)
+    _test_model(MLP, 'perceptron_ar1.csv_6', data)
+
+from collections import defaultdict
+def get_columns(base_dir, files, columns):
+    column_data = defaultdict(list)
+    for f in files:
+        pth = path.join(base_dir,f)
+        with open(pth, 'r') as csv_file:
+            reader = csv.DictReader(csv_file, delimiter=',')
+            for row in reader:
+                for column in columns:
+                    column_data[column].append(row[column])
+    hdrs=''
+    dlen = 0
+    for headers in column_data.keys():
+        hdrs+=headers+'\t\t'
+        dlen = len(column_data[headers])
+    print(hdrs,'\n')
+    for index in range(dlen):
+        row=''
+        for h in column_data.keys():
+            row+= column_data[h][index]+'\t\t'
+        print(row)
+
+
 
 import math
 if __name__ == '__main__':
-    test_np_split()
-    v = 8 * 0.2
-    print(v, math.ceil (v))
+   get_columns('/Volumes/Data/Master/Modules/thesis/experimentations/test_data',['ar1.csv','ar3.csv','ar4.csv','ar5.csv','ar6.csv'],
+               ['unique_operators', 'halstead_vocabulary', 'defects'])
