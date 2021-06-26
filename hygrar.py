@@ -46,6 +46,25 @@ class HyGRAR:
                                                    nn_model_strategy=self.nn_model_creation_strategy,
                                                    perceptron_init_param= self.PERCEPTRON_INIT_PARAM,
                                                    rfbn_init_param=self.PFBN_INIT_PARAM )
+        operators = []
+        for m in ann_models:
+            operators.append(AnnOperator(OperatorType.FAULTY, m))
+            operators.append(AnnOperator(OperatorType.NON_FAULTY, m))
+        grar_subset = util.create_uniqe_classes_subsets(pd.concat([x,y],axis=1), self.class_col)
+        self.interesting_grar_not_faulty = grar.start(grar_subset['False'].drop(columns=[self.class_col]), operators,
+                                                  self.min_support,self.min_confidence,self.min_membership_degree,2)
+
+        self.interesting_grar_faulty = grar.start(grar_subset['True'].drop(columns=[self.class_col]), operators,
+                                              self.min_support,self.min_confidence,self.min_membership_degree, 2)
+
+
+    def train2(self,datasets, features_col, class_col):
+        self.features_col = features_col
+        self.class_col = class_col
+        ann_models = ann_creator.create_ANN_models2(self.run_id, datasets , self.features_col, self.class_col,
+                                                   nn_model_strategy=self.nn_model_creation_strategy,
+                                                   perceptron_init_param= self.PERCEPTRON_INIT_PARAM,
+                                                   rfbn_init_param=self.PFBN_INIT_PARAM )
         operators_faulty = []
         operators_non_faulty = []
         all = []
@@ -56,7 +75,7 @@ class HyGRAR:
         all.extend(operators_faulty)
         all.extend(operators_non_faulty)
 
-        grar_subset = util.create_uniqe_classes_subsets(pd.concat([x,y],axis=1), self.class_col)
+        grar_subset = util.create_uniqe_classes_subsets(util.concat_datasets(datasets)[self.features_col + [ self.class_col]], self.class_col)
         self.interesting_grar_not_faulty = grar.start(grar_subset['False'].drop(columns=[self.class_col]), all,
                                                   self.min_support,self.min_confidence,self.min_membership_degree,2)
 
@@ -68,9 +87,9 @@ class HyGRAR:
         faulty_grar_count = grar_count if len(self.interesting_grar_faulty) >= grar_count else len(self.interesting_grar_faulty)
         non_faulty_grar_count = grar_count if len(self.interesting_grar_not_faulty) >= grar_count else len(self.interesting_grar_not_faulty)
         sorted_faulty_grar = sorted(self.interesting_grar_faulty, key=lambda gr: gr[1], reverse=True)[0:faulty_grar_count]
-        print('selected faulty grars \n', print_grars(sorted_faulty_grar))
+        print('\nselected faulty grars \n', print_grars(sorted_faulty_grar))
         sorted_non_faulty_grar = sorted(self.interesting_grar_not_faulty, key=lambda gr: gr[1], reverse=True)[0:non_faulty_grar_count]
-        print('selected non faulty grars \n', print_grars(sorted_non_faulty_grar))
+        print('\nselected non faulty grars \n', print_grars(sorted_non_faulty_grar))
         predictions = []
         for _, row in dataset.iterrows():
             print('\n\n data row %s', str(row.values))

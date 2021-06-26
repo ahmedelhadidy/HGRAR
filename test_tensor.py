@@ -173,10 +173,16 @@ def _test_model(type, name , data):
 
 def test_model():
     data = np.array([[15, 49]])
-    _test_model(MLP, 'perceptron_ar1.csv_1', data)
-    _test_model(MLP, 'perceptron_ar1.csv_2', data)
-    _test_model(MLP, 'perceptron_ar1.csv_3', data)
-    _test_model(MLP, 'perceptron_ar1.csv_6', data)
+    _test_model(MLP, 'perceptron_ar1.csv_22', data)
+    _test_model(RFBN, 'rfbn_ar1.csv_22', data)
+    _test_model(MLP, 'perceptron_ar1.csv_17', data)
+
+    _test_model(RFBN, 'rfbn_ar1.csv_16', data)
+    _test_model(MLP, 'perceptron_ar1.csv_15', data)
+    _test_model(MLP, 'perceptron_ar1.csv_14', data)
+
+
+
 
 from collections import defaultdict
 def get_columns(base_dir, files, columns):
@@ -204,5 +210,4 @@ def get_columns(base_dir, files, columns):
 
 import math
 if __name__ == '__main__':
-   get_columns('/Volumes/Data/Master/Modules/thesis/experimentations/test_data',['ar1.csv','ar3.csv','ar4.csv','ar5.csv','ar6.csv'],
-               ['unique_operators', 'halstead_vocabulary', 'defects'])
+  test_model()

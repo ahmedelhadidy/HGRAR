@@ -91,25 +91,19 @@ def _random_rows(datasets:[], rare_class_value ,class_column_name , count: int):
     if count <= 0 :
         return None
     return_dataset = None
+    to_count = 0
     try:
-        count_equally_taken = int(count/len(datasets))
-        remaining = 0
-        if count_equally_taken > 0:
-            remaining = count % len(datasets)
-        else:
-            count_equally_taken = 1
-        for ds in datasets:
-            if return_dataset is not None:
-                return_dataset = return_dataset.append(ds[ds[class_column_name] != rare_class_value].sample(n=count_equally_taken), ignore_index = True)
-            else:
-                return_dataset = ds[ds[class_column_name] != rare_class_value].sample(n=count_equally_taken)
-        if remaining > 0 :
+        while True:
             for ds in datasets:
-                return_dataset = return_dataset.append(ds[ds[class_column_name] != rare_class_value].sample(n=1))
-                remaining-=1
-                if remaining == 0 :
-                    break
-        return return_dataset
+                to_count+=1
+                if return_dataset is not None:
+                    return_dataset = return_dataset.append(ds[ds[class_column_name] != rare_class_value].sample(n=1), ignore_index = True)
+                else:
+                    return_dataset = ds[ds[class_column_name] != rare_class_value].sample(n=1)
+                if to_count == count:
+                    return return_dataset
+            if to_count == count:
+                return return_dataset
     except ValueError:
         print(sys.exc_info())
         return None

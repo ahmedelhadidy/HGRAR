@@ -27,7 +27,7 @@ class RFBN(Basic_NN):
             normalization_layer,
             RBFLayer(params.pop('centers', 2), alpha=params.get('alfa', 0.5) , p=params.get('p', 1),
                      initializer=initializer,name=self.RBF_LAYER_NAME),
-            Dense(2,  activation=activations.softmax, kernel_regularizer=regularizers.l2(1e-4))
+            Dense(2,  activation=activations.softmax)
         ])
         model.compile(loss=params.get('loss','binary_crossentropy'), optimizer=opt_rmsprop,
                       metrics=['accuracy',m.Recall(name='recall'), m.Precision(name='precision')], run_eagerly=False)
@@ -43,7 +43,10 @@ class RFBN(Basic_NN):
         epochs = params.get('epochs', 2000)
         patience_ration = params.get('early_stop_patience_ratio', 0.1)
         stop_monitor_metrics = params.get('early_stop_monitor_metric', 'loss')
-        patience = int(epochs * patience_ration)
+        if patience_ration <= 1 :
+            patience = int(epochs * patience_ration)
+        else:
+            patience = patience_ration
         early_stop_callback = EarlyStopping(monitor=stop_monitor_metrics, patience=patience, verbose=2,
                                                                restore_best_weights=True)
         self.train_history = model.fit(x, y, batch_size=params.get('batch_size',10),epochs=epochs,validation_data=(x_val, y_val),

@@ -80,19 +80,19 @@ def create_result_csv(path, results):
         writer = csv.writer(file)
         writer.writerows(rows_list)
 
-@Timer(text="one_time_test executed in {:.2f} seconds")
-def one_time_test():
-    run_id = '13'
+@Timer(text="one_time_test2 executed in {:.2f} seconds")
+def one_time_test2():
+    run_id = '14'
     all_data_sets, features, class_col, input_shape, result_prefix, transformer = usecase_data(1)
 
     HyGRAR.PERCEPTRON_INIT_PARAM = {
         'learning_rate': 0.1,
         'input_shape': input_shape,
-        'batch_size': 5,
-        'epochs': 1200,
+        'batch_size': 10,
+        'epochs': 300,
         #'loss': 'mean_squared_error',
         'loss': 'categorical_crossentropy',
-        'early_stop_patience_ratio': 0.1,
+        'early_stop_patience_ratio': 1,
         'early_stop_monitor_metric': 'val_loss',
         'decay': 0.1,
         'momentum': 0.1
@@ -105,11 +105,11 @@ def one_time_test():
         'learning_rate':0.1,
         'decay': 0.1,
         'input_shape': input_shape,
-        'batch_size': 5,
-        'epochs': 800,
+        'batch_size': 10,
+        'epochs': 300,
         #'loss': 'mean_squared_error',
         'loss': 'categorical_crossentropy',
-        'early_stop_patience_ratio': 0.3,
+        'early_stop_patience_ratio': 1,
         'early_stop_monitor_metric': 'val_loss'
     }
 
@@ -119,6 +119,69 @@ def one_time_test():
         'min_membership': 0.1
     }
 
+
+    results=[]
+    for test, train_list in permutations(*all_data_sets):
+        print('use case : ', test)
+        test_data_set = util.concat_datasets_files([test],base_dire='test_data')
+        train_datasets = []
+        for ds in train_list:
+            dataset = util.concat_datasets_files([ds],base_dire='test_data')
+            if transformer:
+                dataset = transformer(dataset)
+            #dataset = dataset[features + [class_col]]
+            train_datasets.append(dataset)
+        if transformer:
+            test_data_set = transformer(test_data_set)
+
+        hgrar = HyGRAR(test, hgrar_attributes['min_s'], hgrar_attributes['min_c'], hgrar_attributes['min_membership'] ,
+                       nn_model_creation='reuse')
+        hgrar.train2(train_datasets, features,class_col)
+        predictions  = hgrar.predict(test_data_set,3)
+        matrix = Matrix()
+        matrix.update_matrix_bulk(predictions)
+        results.append((test, matrix))
+        create_result_csv(fs.get_relative_to_home(result_prefix+'_results_'+run_id+'.csv'), results)
+        print_matrix(matrix, "prediction on "+test)
+
+
+@Timer(text="one_time_test executed in {:.2f} seconds")
+def one_time_test():
+    run_id='9'
+    all_data_sets, features, class_col, input_shape, result_prefix, transformer = usecase_data(1)
+    HyGRAR.PERCEPTRON_INIT_PARAM = {
+        'learning_rate': 0.1,
+        'input_shape': input_shape,
+        'batch_size': 10,
+        'epochs': 1000,
+        # 'loss': 'mean_squared_error',
+        'loss': 'categorical_crossentropy',
+        'early_stop_patience_ratio': 100,
+        'early_stop_monitor_metric': 'val_loss',
+        'decay': 0.1,
+        'momentum': 0.1
+    }
+
+    HyGRAR.PFBN_INIT_PARAM = {
+        'centers': 2,
+        'alfa': 0.5,
+        'p': 1,
+        'learning_rate': 0.1,
+        'decay': 0.1,
+        'input_shape': input_shape,
+        'batch_size': 10,
+        'epochs': 1000,
+        # 'loss': 'mean_squared_error',
+        'loss': 'categorical_crossentropy',
+        'early_stop_patience_ratio': 100,
+        'early_stop_monitor_metric': 'val_loss'
+    }
+
+    hgrar_attributes = {
+        'min_s': 1,
+        'min_c': 0.5,
+        'min_membership': 0.1
+    }
 
     results=[]
     for test, train_list in permutations(*all_data_sets):
@@ -134,7 +197,7 @@ def one_time_test():
         hgrar = HyGRAR(test, hgrar_attributes['min_s'], hgrar_attributes['min_c'], hgrar_attributes['min_membership'] ,
                        nn_model_creation='retrain')
         hgrar.train(data_set[features],data_set[class_col])
-        predictions  = hgrar.predict(test_data_set,5)
+        predictions  = hgrar.predict(test_data_set,3)
         matrix = Matrix()
         matrix.update_matrix_bulk(predictions)
         results.append((test, matrix))
