@@ -10,7 +10,7 @@ import logging
 import json
 
 LOGGER = logging.getLogger(__name__)
-HYGRAR_PERSISTENCE='hygrar_persistence'
+HYGRAR_PERSISTENCE= filesystem.get_relative_to_home('hygrar')
 
 
 class HyGRAR:
@@ -35,24 +35,26 @@ class HyGRAR:
         'early_stop_monitor_metric': 'val_loss'
     }
 
-    def __init__(self, run_id, grar_min_support, grar_min_confidence, grar_min_membership_degree,nn_model_creation='retrain', rule_max_length=None):
+    def __init__( self, run_id, use_case, grar_min_support, grar_min_confidence, grar_min_membership_degree, nn_model_creation='retrain', rule_max_length=None ):
         self.min_support = grar_min_support
         self.min_confidence = grar_min_confidence
         self.min_membership_degree = grar_min_membership_degree
         self.rule_max_length=rule_max_length
         self.nn_model_creation_strategy = nn_model_creation
+        self.use_case = use_case
         self.run_id = run_id
 
     @Timer(text="hgrar training executed in {:.2f} seconds")
     def train(self,x: pd.DataFrame,y: pd.DataFrame):
         LOGGER.info('hygrar training started ')
-        self.features_col = x.columns
+        self.features_col = list(x.columns.values)
         self.class_col = y.name
         LOGGER.info('hygrar training create/load NN models ')
-        ann_models = ann_creator.create_ANN_models(self.run_id, pd.concat([x,y],axis=1) , self.features_col, self.class_col,
+        nn_path = filesystem.join(HYGRAR_PERSISTENCE,self.run_id,self.use_case)
+        ann_models = ann_creator.create_ANN_models(nn_path, self.use_case, pd.concat([x, y], axis=1), self.features_col, self.class_col,
                                                    nn_model_strategy=self.nn_model_creation_strategy,
                                                    perceptron_init_param= self.PERCEPTRON_INIT_PARAM,
-                                                   rfbn_init_param=self.PFBN_INIT_PARAM )
+                                                   rfbn_init_param=self.PFBN_INIT_PARAM)
         operators = []
         for m in ann_models:
             operators.append(AnnOperator(OperatorType.FAULTY, m))
@@ -60,18 +62,20 @@ class HyGRAR:
         grar_subset = util.create_uniqe_classes_subsets(pd.concat([x,y],axis=1), self.class_col)
         LOGGER.info('hygrar training create non faulty detector grars ')
         self.interesting_grar_not_faulty = grar.start(grar_subset['False'].drop(columns=[self.class_col]), operators,
-                                                  self.min_support,self.min_confidence,self.min_membership_degree,rule_max_length=self.rule_max_length)
+                                                  self.min_support,self.min_confidence,self.min_membership_degree,
+                                                      rule_max_length=self.rule_max_length, max_rule_count=None)
         LOGGER.info('hygrar training create faulty detector grars ')
         self.interesting_grar_faulty = grar.start(grar_subset['True'].drop(columns=[self.class_col]), operators,
-                                              self.min_support,self.min_confidence,self.min_membership_degree, rule_max_length=self.rule_max_length)
+                                              self.min_support,self.min_confidence,self.min_membership_degree,
+                                                  rule_max_length=self.rule_max_length, max_rule_count=None)
 
     def train2(self,datasets, features_col, class_col):
         self.features_col = features_col
         self.class_col = class_col
-        ann_models = ann_creator.create_ANN_models2(self.run_id, datasets , self.features_col, self.class_col,
-                                                   nn_model_strategy=self.nn_model_creation_strategy,
-                                                   perceptron_init_param= self.PERCEPTRON_INIT_PARAM,
-                                                   rfbn_init_param=self.PFBN_INIT_PARAM )
+        ann_models = ann_creator.create_ANN_models2(self.use_case, datasets, self.features_col, self.class_col,
+                                                    nn_model_strategy=self.nn_model_creation_strategy,
+                                                    perceptron_init_param= self.PERCEPTRON_INIT_PARAM,
+                                                    rfbn_init_param=self.PFBN_INIT_PARAM)
         operators_faulty = []
         operators_non_faulty = []
         all = []
@@ -84,10 +88,10 @@ class HyGRAR:
 
         grar_subset = util.create_uniqe_classes_subsets(util.concat_datasets(datasets)[self.features_col + [ self.class_col]], self.class_col)
         self.interesting_grar_not_faulty = grar.start(grar_subset['False'].drop(columns=[self.class_col]), all,
-                                                  self.min_support,self.min_confidence,self.min_membership_degree,2)
+                                                  self.min_support,self.min_confidence,self.min_membership_degree,rule_max_length=3)
 
         self.interesting_grar_faulty = grar.start(grar_subset['True'].drop(columns=[self.class_col]), all,
-                                              self.min_support,self.min_confidence,self.min_membership_degree, 2)
+                                              self.min_support,self.min_confidence,self.min_membership_degree, rule_max_length=3)
 
     @Timer(text="hgrar predict executed in {:.2f} seconds")
     def predict(self, dataset :pd.DataFrame, grar_count):
@@ -119,22 +123,23 @@ class HyGRAR:
             "rule_max_length": self.rule_max_length,
             "nn_model_creation_strategy": self.nn_model_creation_strategy,
             "run_id": self.run_id,
+            "use_case" : self.use_case,
             "features_col": self.features_col,
             "class_col": self.class_col,
             "faulty_grar" : list([ grar.create_grar_object(grule,membership) for grule, membership in self.interesting_grar_faulty]),
             "non_faulty_grar": list(
                 [grar.create_grar_object(grule, membership) for grule, membership in self.interesting_grar_not_faulty])
         }
-        file_path = filesystem.get_relative_to_home(HYGRAR_PERSISTENCE)
+        file_path = filesystem.join(HYGRAR_PERSISTENCE,self.run_id, self.use_case )
         filesystem.create_path(file_path,exist_ok=True)
-        with open(filesystem.join(file_path,'grars_'+self.run_id+'.json'), 'w') as hygrar_file:
+        with open(filesystem.join(file_path,'grars.json'), 'w') as hygrar_file:
             json.dump(obj, hygrar_file, indent=4)
 
 
-    def load_hgrar(run_id, grar_count=None):
-        file_path = filesystem.get_relative_to_home(HYGRAR_PERSISTENCE)
+    def load_hgrar(run_id,use_case, grar_count=None):
+        file_path = filesystem.join(HYGRAR_PERSISTENCE,run_id, use_case )
         obj={}
-        with open(filesystem.join(file_path, 'grars_' + run_id + '.json'), 'r') as hygrar_file:
+        with open(filesystem.join(file_path, 'grars.json'), 'r') as hygrar_file:
             obj = json.load(hygrar_file)
         return  HyGRAR.create_from_obj(obj, grar_count)
 
@@ -155,28 +160,25 @@ class HyGRAR:
         hgrar.features_col = features_col
         hgrar.class_col = class_col
 
-        faulty_grar_objexts = sorted(object_dict.get('faulty_grar'), key= lambda x:x['membership'], reverse=True)
-        non_faulty_grar_objexts = sorted(object_dict.get('non_faulty_grar'), key= lambda x:x['membership'], reverse=True)
+        faulty_grar_objects = sorted(object_dict.get('faulty_grar'), key= lambda x:x['membership'], reverse=True)
+        non_faulty_grar_objects = sorted(object_dict.get('non_faulty_grar'), key= lambda x:x['membership'], reverse=True)
 
         if grar_count:
-            faulty_grar_objexts = faulty_grar_objexts[:grar_count]
-            non_faulty_grar_objexts = faulty_grar_objexts[:grar_count]
+            faulty_grar_objects = faulty_grar_objects[:grar_count]
+            non_faulty_grar_objects = non_faulty_grar_objects[:grar_count]
 
-        for faulty_grar in faulty_grar_objexts:
+        for faulty_grar in faulty_grar_objects:
             hgrar.interesting_grar_faulty.append(grar.build_from_obj(faulty_grar))
-        for non_faulty_grar in non_faulty_grar_objexts:
+        for non_faulty_grar in non_faulty_grar_objects:
             hgrar.interesting_grar_not_faulty.append(grar.build_from_obj(non_faulty_grar))
         return hgrar
-
-
-
 
 
 def _calculate_diff(data_row, grar: []):
     total_rules_diff=0
     n = len(grar)
     for r, m in grar:
-        mr = r.calculate_membership_degree(data_row)
+        mr = r.calculate_membership_degree_avg(data_row)
         total_rules_diff += abs(m - mr)
         LOGGER.debug('grar (%s , %f) membership for data is %f'% (str(r),m, mr))
     avg_diff = total_rules_diff / n

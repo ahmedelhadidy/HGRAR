@@ -87,7 +87,7 @@ def __calculate_support_confidence_membership(rule:GRule, dataset, min_membershi
     for index,row in dataset.iterrows():
         if __all_rule_items_present(row, rule.get_all_items()):
             s_counter+=1
-            membership_degree = rule.calculate_membership_degree(row)
+            membership_degree = rule.calculate_membership_degree_avg(row)
             if membership_degree >= min_membership:
                 c_counter+=1
                 m_c += membership_degree

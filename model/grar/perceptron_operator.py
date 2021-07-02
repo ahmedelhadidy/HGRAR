@@ -2,11 +2,8 @@ from model.grar.operator import OperatorType
 from model.grar.operator import Operator
 from NR.nural_network import Basic_NN
 import model.grar.exceptions as exception
-import numpy as np
 from NR.perceptron_keras import MLP
 from NR.RFBN import RFBN
-from NR.nural_network import RFBN_MODELS_PATH, MLP_MODELS_PATH
-
 
 class AnnOperator(Operator):
 
@@ -40,7 +37,8 @@ class AnnOperator(Operator):
             "NN_model": {
                 "class": type(self.model).__name__,
                 "identifier": self.model.identifier,
-                "features": self.model.features_names
+                "features": self.model.features_names,
+                "saved_path": self.model.saved_path
             }
         }
         return obj
@@ -49,12 +47,12 @@ class AnnOperator(Operator):
         classs = obj.get('NN_model').get('class')
         identifier = obj.get('NN_model').get('identifier')
         features = obj.get('NN_model').get('features')
+        saved_path = obj.get('saved_path')
         if classs == 'MLP':
             model = MLP(identifier, features)
-            model.load_models(MLP_MODELS_PATH)
         elif classs == 'RFBN':
             model = RFBN(identifier, features)
-            model.load_models(RFBN_MODELS_PATH)
+        model.load_models(saved_path)
         return AnnOperator(OperatorType[obj.get('operator_type')], model)
 
 

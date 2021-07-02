@@ -1,4 +1,4 @@
-from NR.nural_network import Basic_NN, visualize, get_normalizer_layer , MLP_MODELS_PATH
+from NR.nural_network import Basic_NN, get_normalizer_layer
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import activations, optimizers
 import tensorflow.keras.metrics as m
@@ -15,10 +15,10 @@ class MLP(Basic_NN):
         normalization_layer = get_normalizer_layer(params.get('input_shape', (2,)), x)
 
         model = Sequential([
-            #normalization_layer,
-            tf.keras.layers.Input(shape=params.get('input_shape', (2,))),
+            normalization_layer,
+            #tf.keras.layers.Input(shape=params.get('input_shape', (2,))),
             tf.keras.layers.Dense(2, activation=activations.sigmoid),
-            tf.keras.layers.Dense(2, activation=activations.sigmoid)
+            tf.keras.layers.Dense(2, activation=activations.softmax)
         ])
         #kernel_regularizer=l2(1e-4), bias_regularizer=l2(1e-4)
         opt= optimizers.RMSprop(learning_rate=params.get('learning_rate',0.1), momentum=params.get('momentum',0.0),decay=params.get('decay',0.1))
@@ -43,6 +43,5 @@ class MLP(Basic_NN):
 
         train_history = model.fit(x, y, epochs=epochs,batch_size=params.get('batch_size',10),validation_data=(x_val, y_val),
                                        callbacks=[early_stop_callback])
-        if self.visualize:
-            visualize(fs.join(MLP_MODELS_PATH, self.identifier+'.jpg'), train_history, 'loss','accuracy','precision','recall' )
+
         return train_history

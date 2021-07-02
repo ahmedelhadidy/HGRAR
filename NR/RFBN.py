@@ -5,7 +5,7 @@ from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras.optimizers import RMSprop, Adam
 from tensorflow.keras.models import Sequential
 from tensorflow.keras import activations
-from NR.nural_network import Basic_NN, get_normalizer_layer, visualize, RFBN_MODELS_PATH
+from NR.nural_network import Basic_NN, get_normalizer_layer
 import tensorflow.keras.metrics as m
 from tensorflow.keras.callbacks import EarlyStopping
 import utils.filesystem as fs
@@ -28,7 +28,7 @@ class RFBN(Basic_NN):
             Input(shape=params.get('input_shape', (2,))),
             RBFLayer(params.pop('centers', 2), alpha=params.get('alfa', 0.5) , p=params.get('p', 1),
                      initializer=initializer,name=self.RBF_LAYER_NAME),
-            Dense(2,  activation=activations.sigmoid)
+            Dense(2,  activation=activations.softmax)
         ])
         model.compile(loss=params.get('loss','binary_crossentropy'), optimizer=opt_rmsprop,
                       metrics=['accuracy',m.Recall(name='recall'), m.Precision(name='precision')], run_eagerly=False)
@@ -55,8 +55,6 @@ class RFBN(Basic_NN):
                                        callbacks=[early_stop_callback])
         after = model.get_layer(self.RBF_LAYER_NAME).get_weights()[0]
         print('before training ', before, '\n', 'after training ', after)
-        if self.visualize:
-            visualize( fs.join(RFBN_MODELS_PATH, self.identifier+'.jpg'), train_history,'loss', 'accuracy','recall','precision')
         return train_history
 
 

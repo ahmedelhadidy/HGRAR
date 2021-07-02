@@ -153,7 +153,7 @@ def one_time_test2():
 
 @Timer(text="one_time_test executed in {:.2f} seconds")
 def one_time_test():
-    run_id='21'
+    run_id='22'
     all_data_sets, features, class_col, result_prefix, transformer = usecase_data(1)
     HyGRAR.PERCEPTRON_INIT_PARAM = {
         'learning_rate': 0.1,
@@ -162,8 +162,8 @@ def one_time_test():
         'epochs': 1000,
         'loss': 'mean_squared_error',
         #'loss': 'categorical_crossentropy',
-        'early_stop_patience_ratio': 300,
-        'early_stop_monitor_metric': 'val_loss',
+        'early_stop_patience_ratio': 1.0,
+        'early_stop_monitor_metric': 'loss',
         'decay': 0.1,
         'momentum': 0.1
     }
@@ -173,15 +173,15 @@ def one_time_test():
         'alfa': 0.5,
         'p': 1,
         'learning_rate': 0.1,
-        'decay': 0,
-        'momentum': 0.1,
+        'decay': 0.1,
+        'momentum': 0,
         'input_shape': (2,),
         'batch_size': None,
         'epochs': 1000,
         'loss': 'mean_squared_error',
         #'loss': 'categorical_crossentropy',
-        'early_stop_patience_ratio': 300,
-        'early_stop_monitor_metric': 'val_loss'
+        'early_stop_patience_ratio': 1.0,
+        'early_stop_monitor_metric': 'loss'
     }
 
     hgrar_attributes = {
@@ -201,7 +201,7 @@ def one_time_test():
         if transformer:
             test_data_set = transformer(test_data_set)
 
-        hgrar = HyGRAR(test, hgrar_attributes['min_s'], hgrar_attributes['min_c'], hgrar_attributes['min_membership'] ,
+        hgrar = HyGRAR(run_id,test, hgrar_attributes['min_s'], hgrar_attributes['min_c'], hgrar_attributes['min_membership'] ,
                        nn_model_creation='reuse', rule_max_length=3)
         hgrar.train(data_set[features],data_set[class_col])
         hgrar.save_grars()
@@ -214,9 +214,10 @@ def one_time_test():
 
 
 def test_saved_hgrar():
+    grars_count = 3
     ds = util.concat_datasets_files(['ar1.csv'], base_dire='test_data')
-    hgrar = HyGRAR.load_hgrar('ar1.csv', 3)
-    predictions = hgrar.predict(ds, 3)
+    hgrar = HyGRAR.load_hgrar('ar1.csv', grars_count)
+    predictions = hgrar.predict(ds, grars_count)
     matrix = Matrix()
     matrix.update_matrix_bulk(predictions)
     print_matrix(matrix, "prediction on " + 'ar1')
@@ -242,5 +243,5 @@ def usecase_data(id):
 
 
 if __name__ == '__main__':
-    #one_time_test()
+    one_time_test()
     test_saved_hgrar()

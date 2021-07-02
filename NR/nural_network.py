@@ -6,9 +6,10 @@ from tensorflow.keras.layers.experimental.preprocessing import Normalization
 import utils.filesystem as fs
 import numpy as np
 import math
+import json
 
-RFBN_MODELS_PATH= fs.get_relative_to_home('rfbn_models')
-MLP_MODELS_PATH= fs.get_relative_to_home('mlp_models')
+RFBN_MODELS_PATH= 'rfbn_models'
+MLP_MODELS_PATH= 'mlp_models'
 
 class Basic_NN:
 
@@ -17,8 +18,9 @@ class Basic_NN:
     def __init__(self, name,features_names:[], visualize = False , **kwargs):
         self.identifier = name
         self.features_names = features_names
-        self.visualize = visualize
+        self.do_visualize = visualize
         self.model_params= kwargs
+        self.train_history = None
 
     def _build_model( self, x, y):
         pass
@@ -29,7 +31,10 @@ class Basic_NN:
             get_value_wise_subsets(x, y, ([0, 1], 0.1), ([1, 0], 0.1))
         x_val = np.concatenate((true_validation_x, false_validation_x), axis=0)
         y_val = np.concatenate((true_validation_y, false_validation_y), axis=0)
-        return self._train_model(x,y,x_val, y_val, self._model)
+        history =  self._train_model(x,y,x_val, y_val, self._model)
+        self.train_history = history.history
+        self.train_history['epoch'] = history.epoch
+        return self.train_history
 
     def _train_model( self,x, y, x_val, y_val, model):
         pass
@@ -41,7 +46,13 @@ class Basic_NN:
         :return: True if model loaded successfully else False
         '''
         try:
-            self._model= tf.keras.models.load_model(path.join(model_path, self.identifier))
+            model_path = path.join(model_path, self.identifier)
+            self._model= tf.keras.models.load_model(model_path)
+            with open(model_path+'.json', 'r') as model_json:
+                obj = json.load(model_json)
+            self.model_params = obj['model_params']
+            self.train_history = obj['training_history']
+            self.saved_path = obj['saved_path']
             return True
         except (IOError, ImportError) as err:
             print(err)
@@ -51,6 +62,23 @@ class Basic_NN:
         if self._model:
             os.makedirs(path.join(model_path, self.identifier), exist_ok=True)
             self._model.save(path.join(model_path, self.identifier))
+            self.create_object(model_path)
+            if self.do_visualize:
+                self.visualize(fs.join(model_path, self.identifier + '.jpg'),
+                               'loss', 'accuracy','precision', 'recall')
+            self.saved_path = model_path
+
+    def create_object( self, model_path ):
+        obj={}
+        obj['identifier'] = self.identifier
+        obj['class'] = type(self).__name__
+        obj['features_names'] = self.features_names
+        obj['model_params'] = self.model_params
+        obj['training_history'] = self.train_history
+        obj['saved_path'] = model_path
+        with open(path.join(model_path, self.identifier+'.json'), 'w') as model_file:
+            json.dump(obj, model_file, indent=4)
+
 
     def score( self, x, y ):
         scores = self._model.evaluate(x, y, verbose=0)
@@ -96,6 +124,36 @@ class Basic_NN:
                 array[row_index][col_index] = obj.get(f_name)
         return array
 
+    def visualize( self, path, *args ):
+        rows = int(len(args) / 2) + len(args) % 2
+        cols = 1 if len(args) == 1 else 2
+        fig, axes = plt.subplots(rows, cols, figsize=(15, 8))
+        axes_shape_length = len(axes.shape)
+        fig.tight_layout(pad=4.0)
+        plt.subplots_adjust(top=0.8)
+        color = 'tab:green'
+        color_val = 'tab:red'
+        tick = 50
+        epochs_ticks = np.arange(0, self.train_history.get('epoch')[-1] + tick, tick)
+        epoch = self.train_history.get('epoch')
+        cur_row, cur_col = 0, 0
+        for index, matrix in enumerate(args):
+            if axes_shape_length == 1:
+                ax = axes[index]
+            else:
+                ax = axes[cur_row][cur_col]
+            ax.set_title('Training VS Validation ' + matrix)
+            ax.set_xlabel('Epochs')
+            ax.set_ylabel(matrix)
+            ax.plot(epoch, self.train_history[matrix], color=color, label='Training')
+            ax.plot(epoch, self.train_history['val_' + matrix], color=color_val, label='Validation')
+            ax.set_xticks(epochs_ticks)
+            cur_row, cur_col = next_cell(cur_row, cur_col, rows, cols)
+
+        plt.legend()
+        fs.delete(path)
+        plt.savefig(path)
+
 
 
 def get_normalizer_layer(input_shape, x):
@@ -115,34 +173,7 @@ def next_cell(row, column, rows_count, columns_count):
         return row, column+1
 
 
-def visualize(path, history, *args):
-    rows = int(len(args)/2) + len(args) % 2
-    cols = 1 if len(args) == 1 else 2
-    fig, axes = plt.subplots(rows,cols,figsize=(15, 8))
-    axes_shape_length = len(axes.shape)
-    fig.tight_layout(pad=4.0)
-    plt.subplots_adjust(top=0.8)
-    color = 'tab:green'
-    color_val = 'tab:red'
-    tick = 50
-    epochs = np.arange(0,history.epoch[-1]+tick,tick)
-    cur_row, cur_col = 0, 0
-    for index, matrix in enumerate(args):
-        if axes_shape_length == 1:
-            ax = axes[index]
-        else:
-            ax = axes[cur_row][cur_col]
-        ax.set_title('Training VS Validation '+matrix)
-        ax.set_xlabel('Epochs')
-        ax.set_ylabel(matrix)
-        ax.plot(history.epoch, history.history[matrix], color=color, label='Training')
-        ax.plot(history.epoch,history.history['val_'+matrix], color=color_val, label='Validation')
-        ax.set_xticks(epochs)
-        cur_row, cur_col = next_cell(cur_row, cur_col, rows, cols)
 
-    plt.legend()
-    fs.delete(path)
-    plt.savefig(path)
 
 
 def get_value_wise_subsets(x, y, *args):

@@ -8,7 +8,7 @@ from NR.nural_network import RFBN_MODELS_PATH, MLP_MODELS_PATH
 from itertools import combinations
 
 
-def create_ANN_models(run_id, dataset, features_col_names, class_col_name, nn_model_strategy='retrain', perceptron_init_param = None, rfbn_init_param = None):
+def create_ANN_models( model_path, use_case, dataset, features_col_names, class_col_name, nn_model_strategy='retrain', perceptron_init_param = None, rfbn_init_param = None ):
     '''
     :run_id: unique run_id used to save model for specific use case
     :param dataset: training dataset
@@ -32,22 +32,22 @@ def create_ANN_models(run_id, dataset, features_col_names, class_col_name, nn_mo
     for balanced_set in balanced_sets:
         print('balanced dataset shape = ',balanced_set.shape)
         for f1, f2 in combinations(features_col_names,2):
-            perceptron_model_name = perceptron_template.format(run_id, counter, f1, f2)
-            rbf_model_name = rfbn_template.format(run_id, counter, f1, f2)
+            perceptron_model_name = perceptron_template.format(use_case, counter, f1, f2)
+            rbf_model_name = rfbn_template.format(use_case, counter, f1, f2)
 
             x = np.asarray(balanced_set[[f1, f2]])
             y = ohenc.encode(balanced_set[class_col_name].tolist())
 
-            mlp = _get_nn_model(x, y, [f1, f2], perceptron_model_name, MLP, nn_model_strategy, visualise= True, **perceptron_init_param )
+            mlp = _get_nn_model(x, y, model_path, [f1, f2], perceptron_model_name, MLP, nn_model_strategy, visualise= True, **perceptron_init_param )
             models.append(mlp)
 
-            rfbn = _get_nn_model(x, y, [f1, f2], rbf_model_name, RFBN, nn_model_strategy, visualise= True, **rfbn_init_param )
+            rfbn = _get_nn_model(x, y, model_path, [f1, f2], rbf_model_name, RFBN, nn_model_strategy, visualise= True, **rfbn_init_param )
             models.append(rfbn)
 
         counter+=1
     return models
 
-def create_ANN_models2(run_id, datasets, features_col_names, class_col_name, nn_model_strategy='retrain', perceptron_init_param = None, rfbn_init_param = None):
+def create_ANN_models2(models_path, run_id, datasets, features_col_names, class_col_name, nn_model_strategy='retrain', perceptron_init_param = None, rfbn_init_param = None):
     models = []
     ohenc = OneHotEncoder([False, True])
     counter = 1
@@ -72,13 +72,13 @@ def create_ANN_models2(run_id, datasets, features_col_names, class_col_name, nn_
     return models
 
 
-def _get_nn_model(x,y, features_names, model_name, model_type, nn_model_strategy, visualise=False, **kwargs):
+def _get_nn_model(x,y, run_path, features_names, model_name, model_type, nn_model_strategy, visualise=False, **kwargs):
     if model_type == MLP:
         model = MLP(model_name, features_names, visualize=visualise, **kwargs)
-        path = MLP_MODELS_PATH
+        path = fs.join(run_path, MLP_MODELS_PATH)
     else:
         model = RFBN(model_name, features_names, visualize=visualise, **kwargs)
-        path = RFBN_MODELS_PATH
+        path = fs.join(run_path, RFBN_MODELS_PATH)
 
     if nn_model_strategy in ['reuse','train']:
         is_loaded = model.load_models(path)

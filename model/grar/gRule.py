@@ -35,6 +35,20 @@ class GRule:
                 min_member_ship_degree = member_ship_degree
         return min_member_ship_degree
 
+    def calculate_membership_degree_avg(self, data_row):
+        sum_member_ship_degree = 0
+        count=0
+        terms_tubles_list = list([ (self.g_rule_set[i], self.g_rule_set[i+1])
+                                 for i in range(len(self.g_rule_set)-1)
+                                 if i < len(self.g_rule_set)
+                                  ])
+        for term1, term2 in terms_tubles_list:
+            member_ship_degree = term1.apply(term2, data_row)
+            sum_member_ship_degree += member_ship_degree
+            count += 1
+
+        return sum_member_ship_degree /count
+
     def get_all_items(self):
         return list([term.item for term in self.g_rule_set])
 

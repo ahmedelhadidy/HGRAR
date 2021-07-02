@@ -29,8 +29,8 @@ def get_relative_to_home(*args):
     return os.path.join(expanduser("~"), *args)
 
 
-def join(path, paths):
-    return os.path.join(path, paths)
+def join(path, *paths):
+    return os.path.join(path, *paths)
 
 
 def create_path(path, exist_ok=False):
