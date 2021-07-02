@@ -31,3 +31,7 @@ def get_relative_to_home(*args):
 
 def join(path, paths):
     return os.path.join(path, paths)
+
+
+def create_path(path, exist_ok=False):
+    os.makedirs(path, exist_ok=exist_ok)

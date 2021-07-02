@@ -14,10 +14,11 @@ class GRule:
             raise ExceedingGRuleLength('Exceeding defined GRule length %s'.format(self.length))
         self.g_rule_set.append(term)
 
-    def add_items(self, items):
+    def add_terms( self, items ):
         if len(self.g_rule_set) + len(items) > self.length:
             raise ExceedingGRuleLength('Exceeding defined GRule length %s'.format(self.length))
         self.g_rule_set.extend(items)
+
 
     def get_length(self):
         return self.length
@@ -37,6 +38,22 @@ class GRule:
     def get_all_items(self):
         return list([term.item for term in self.g_rule_set])
 
+    def build_from_obj( obj ):
+        rule_terms_obj = obj.get('rule_terms')
+        length = len(rule_terms_obj)
+        grul = GRule(length)
+        for rule_obj in rule_terms_obj:
+           grul.add_term(Term.build_from_obj(rule_obj))
+        return grul
+
+
+    def get_terms( self ):
+        return self.g_rule_set.copy()
+
+    def get_operator_of_term( self, item_index ):
+        op = self.g_rule_set[item_index].operator
+        return op
+
     def join_r1_detected(self, grule2):
         grule1_terms = copy.deepcopy(self.g_rule_set)
         grule2_terms = copy.deepcopy(grule2.g_rule_set)
@@ -53,7 +70,7 @@ class GRule:
             grule2_terms = grule2_terms[:-1]
             grule2_terms[-1].operator = Operator(OperatorType.NE)
             for index, term in enumerate(grule1_terms):
-                if term != grule2_terms[index]:
+                if not term.grar_eq(grule2_terms[index]):
                     matched = False
                     break
             if matched:
@@ -75,8 +92,8 @@ class GRule:
             grule2_prefex.append(grule2_terms[0])
             grule2_terms= grule2_terms[1:]
 
-            for indx, term in enumerate(grule1_terms):
-                if term != grule2_terms[indx]:
+            for index, term in enumerate(grule1_terms):
+                if not term.grar_eq(grule2_terms[index]):
                     matched = False
                     break
             if matched:
@@ -96,7 +113,7 @@ class GRule:
             grule2_terms = grule2_terms[1:]
             grule2_terms_reversed = reserv_grule_terms(grule2_terms)
             for index, term in enumerate(grule1_terms):
-                if term != grule2_terms_reversed[index]:
+                if not term.grar_eq(grule2_terms_reversed[index]) :
                     matched = False
                     break
             if matched:
@@ -120,12 +137,15 @@ class GRule:
             grule2_terms[-1].operator = Operator(OperatorType.NE)
             rule2_reversed_terms = reserv_grule_terms(grule2_terms)
             for index, term in enumerate(grule1_terms):
-                if term != rule2_reversed_terms[index]:
+                if not term.grar_eq(rule2_reversed_terms[index]) :
                     matched = False
                     break
             if matched:
                 return  grule1_sufex, grule1_terms, grule2_sufex
         return None, None, None
+
+    def create_object( self ):
+        return list([t.create_object() for t in self.g_rule_set])
 
     def __str__(self):
         instance_str =''
@@ -155,6 +175,8 @@ def reserv_grule_terms(terms):
 
 
 def get_join_rule(rule1, rule2):
+    if _is_terms_identical(rule1, rule2):
+        return None, (None, None, None)
     terms = rule1.join_r1_detected(rule2)
     join_rule='r1'
     if None in terms:
@@ -196,3 +218,13 @@ def join (join_rule, rule1_new_terms, common_terms, rule2_new_terms):
     return joined_terms
 
 
+def _is_terms_identical(grule1: GRule, grule2: GRule):
+    for term1 in grule1.get_terms():
+        matched = False
+        for term2 in grule2.get_terms():
+            if  term1.item == term2.item:
+                matched = True
+                break
+        if not matched:
+            return False
+    return True

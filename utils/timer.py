@@ -3,17 +3,18 @@ from dataclasses import dataclass, field
 import time
 from typing import Any, Callable, ClassVar, Dict, Optional
 import functools
+import logging
 class TimerError(Exception):
     """A custom exception used to report errors in use of Timer class"""
 
 ALLOW_LOGGING = True
-
+LOGGER = logging.getLogger(__name__)
 @dataclass
 class Timer(ContextDecorator):
     timers: ClassVar[Dict[str, float]] = dict()
     name: Optional[str] = None
     text: str = "Elapsed time: {:0.4f} seconds"
-    logger: Optional[Callable[[str], None]] = print
+    logger: Optional[Callable[[str], None]] = LOGGER.info
     _start_time: Optional[float] = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:

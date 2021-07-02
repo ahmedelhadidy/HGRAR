@@ -14,8 +14,9 @@ class Basic_NN:
 
     tf.get_logger().setLevel('ERROR')
 
-    def __init__(self, name, visualize = False , **kwargs):
+    def __init__(self, name,features_names:[], visualize = False , **kwargs):
         self.identifier = name
+        self.features_names = features_names
         self.visualize = visualize
         self.model_params= kwargs
 
@@ -28,7 +29,7 @@ class Basic_NN:
             get_value_wise_subsets(x, y, ([0, 1], 0.1), ([1, 0], 0.1))
         x_val = np.concatenate((true_validation_x, false_validation_x), axis=0)
         y_val = np.concatenate((true_validation_y, false_validation_y), axis=0)
-        self._train_model(x,y,x_val, y_val, self._model)
+        return self._train_model(x,y,x_val, y_val, self._model)
 
     def _train_model( self,x, y, x_val, y_val, model):
         pass
@@ -56,17 +57,21 @@ class Basic_NN:
         return scores[1]
 
     @Timer(text="RFBN predict in {:.2f} seconds")
-    def predict_with_membership_degree( self, x ):
-        predictions = self._model.predict(x)
+    def predict_with_membership_degree( self, *x_instances ):
+        predictions = self._model.predict(self.x_objects_to_array(*x_instances))
         class_arr = [False, True]
         result_predictions = []
         for p in predictions:
             result_predictions.append(self.build_prediction_object(class_arr, p))
         return result_predictions
 
-    def predict_dataset_with_membership_degree( self, x ):
+    def predict_dataset_with_membership_degree( self, *args ):
+        '''
+        :param args: one or more duct objects , each one has all features for one test instance
+        :return:
+        '''
         class_arr = [False, True]
-        predictions = self._model.predict(x)
+        predictions = self._model.predict(self.x_objects_to_array(*args))
         result_predictions = []
         for p in predictions:
             result_predictions.append(self.build_prediction_object(class_arr, p))
@@ -77,6 +82,20 @@ class Basic_NN:
         for indx, val in enumerate(class_array):
             res_object[val] = prediction[indx]
         return res_object
+
+    def is_trained_on( self, *args ):
+        for f_n in args:
+            if f_n not in self.features_names:
+                return False
+        return True
+
+    def x_objects_to_array( self, *x_instances_objects ):
+        array = np.empty(shape=(len(x_instances_objects), len(self.features_names)))
+        for row_index, obj in enumerate(x_instances_objects):
+            for col_index, f_name in enumerate(self.features_names):
+                array[row_index][col_index] = obj.get(f_name)
+        return array
+
 
 
 def get_normalizer_layer(input_shape, x):

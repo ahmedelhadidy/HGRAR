@@ -6,7 +6,15 @@ from NR.RFBN import kmean_initializer
 import os.path as path
 import csv
 from tensorflow.keras.initializers import Initializer
-
+from model.grar.operator import Operator
+from model.grar.perceptron_operator import AnnOperator
+from model.grar.operator import OperatorType
+from model.grar.item import Item
+from model.grar.term import Term
+from model.grar.gRule import GRule
+import model.grar.gRule as gRule
+from hygrar import HyGRAR
+import utils.datapartitional as dutil
 
 
 class TestInit(Initializer):
@@ -206,8 +214,49 @@ def get_columns(base_dir, files, columns):
             row+= column_data[h][index]+'\t\t'
         print(row)
 
+def fun(*names):
+    print(len(*names))
+    for ind, v in enumerate(names):
+        print(ind,"  ",v)
 
+def test_op_type():
+    term1 = Term(Item('i1',0), AnnOperator(OperatorType.FAULTY, None))
+    term2 = Term(Item('i1',1), Operator(OperatorType.NE))
+    assert term1.grar_eq(term2)
+
+def test_grul_r1_join():
+    term1 = Term(Item('unique_operators',0),
+                 AnnOperator(OperatorType.FAULTY, MLP('perceptron_ar1.csv_1_unique_operators##halstead_vocabulary',['unique_operators','halstead_vocabulary'])))
+    term2 = Term(Item('halstead_vocabulary',0),Operator(OperatorType.NE))
+    term3 = Term(Item('halstead_vocabulary',0),
+                 AnnOperator(OperatorType.FAULTY, RFBN('rfbn_ar1.csv_2_halstead_vocabulary##unique_operands',['halstead_vocabulary','unique_operands'])))
+    term4= Term(Item('unique_operands',0), Operator(OperatorType.NE))
+
+    rule1 = GRule(2)
+    rule1.add_terms([term1, term2])
+
+    rule2 = GRule(2)
+    rule2.add_terms([term3, term4])
+
+    a,b,c = rule1.join_r1_detected(rule2)
+
+    print(str(a[0]),str(b[0]),str(c))
+
+def test_grul_terms_identical():
+    term1 = Term(Item('unique_operators',0),
+                 AnnOperator(OperatorType.FAULTY, MLP('perceptron_ar1.csv_1_unique_operators##halstead_vocabulary',['unique_operators','halstead_vocabulary'])))
+    term2 = Term(Item('halstead_vocabulary',0),Operator(OperatorType.NE))
+    term3 = Term(Item('halstead_vocabulary',0),
+                 AnnOperator(OperatorType.FAULTY, RFBN('rfbn_ar1.csv_2_halstead_vocabulary##unique_operands',['halstead_vocabulary','unique_operands'])))
+    term4= Term(Item('unique_operators',0), Operator(OperatorType.NE))
+
+    rule1 = GRule(2)
+    rule1.add_terms([term1, term2])
+
+    rule2 = GRule(2)
+    rule2.add_terms([term3, term4])
+
+    assert  gRule._is_terms_identical(rule1, rule2)
 
 import math
 if __name__ == '__main__':
-  test_model()

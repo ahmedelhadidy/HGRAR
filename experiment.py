@@ -7,9 +7,13 @@ import utils.timer as timer
 from utils.timer import Timer
 import csv
 from utils import filesystem as fs
+import logging.config
+import logging
 
+
+logging.config.fileConfig('logging.conf', disable_existing_loggers=False)
+LOGGER = logging.getLogger(__name__)
 timer.ALLOW_LOGGING=False
-
 timer.ALLOW_LOGGING=False
 
 def _prepare_data_set(file_names, base_dir, features_col, class_col):
@@ -34,12 +38,14 @@ def llo_cv(dataset, feartures_cols, class_col, **kwargs):
     return matrix_
 
 def print_matrix(m, comment):
-    print('======================={}============================'.format(comment))
-    print('score = ', m.score(), 'precision = ', m.precision(), 'Sensitivity/recall = ',
-          m.recall(),
-          'specificity = ', m.specificity(), 'AUC = ', m.AUC())
-    print('matrix : ', m)
-    print('===================================================')
+    mertic_str = '======================= %s ============================'
+    mertic_str += '\n'
+    mertic_str += 'score = %f  precision =  %f  Sensitivity/recall = %f specificity = %f AUC = %f '
+    mertic_str += 'metric : %s'
+    mertic_str += '\n'
+    mertic_str += '==================================================='
+    LOGGER.info(mertic_str, comment,m.score(), m.precision(), m.recall(), m.specificity(), m.AUC(), str(m))
+
 
 def test_LOO_CV():
     features = ['unique_operators', 'halstead_vocabulary']
@@ -82,7 +88,7 @@ def create_result_csv(path, results):
 
 @Timer(text="one_time_test2 executed in {:.2f} seconds")
 def one_time_test2():
-    run_id = '14'
+    run_id = '15'
     all_data_sets, features, class_col, input_shape, result_prefix, transformer = usecase_data(1)
 
     HyGRAR.PERCEPTRON_INIT_PARAM = {
@@ -147,16 +153,16 @@ def one_time_test2():
 
 @Timer(text="one_time_test executed in {:.2f} seconds")
 def one_time_test():
-    run_id='9'
-    all_data_sets, features, class_col, input_shape, result_prefix, transformer = usecase_data(1)
+    run_id='21'
+    all_data_sets, features, class_col, result_prefix, transformer = usecase_data(1)
     HyGRAR.PERCEPTRON_INIT_PARAM = {
         'learning_rate': 0.1,
-        'input_shape': input_shape,
-        'batch_size': 10,
+        'input_shape': (2,),
+        'batch_size': None,
         'epochs': 1000,
-        # 'loss': 'mean_squared_error',
-        'loss': 'categorical_crossentropy',
-        'early_stop_patience_ratio': 100,
+        'loss': 'mean_squared_error',
+        #'loss': 'categorical_crossentropy',
+        'early_stop_patience_ratio': 300,
         'early_stop_monitor_metric': 'val_loss',
         'decay': 0.1,
         'momentum': 0.1
@@ -167,25 +173,26 @@ def one_time_test():
         'alfa': 0.5,
         'p': 1,
         'learning_rate': 0.1,
-        'decay': 0.1,
-        'input_shape': input_shape,
-        'batch_size': 10,
+        'decay': 0,
+        'momentum': 0.1,
+        'input_shape': (2,),
+        'batch_size': None,
         'epochs': 1000,
-        # 'loss': 'mean_squared_error',
-        'loss': 'categorical_crossentropy',
-        'early_stop_patience_ratio': 100,
+        'loss': 'mean_squared_error',
+        #'loss': 'categorical_crossentropy',
+        'early_stop_patience_ratio': 300,
         'early_stop_monitor_metric': 'val_loss'
     }
 
     hgrar_attributes = {
         'min_s': 1,
         'min_c': 0.5,
-        'min_membership': 0.1
+        'min_membership': 0.5
     }
 
     results=[]
     for test, train_list in permutations(*all_data_sets):
-        print('use case : ', test)
+        LOGGER.info('use case : %s ', test)
         data_set = util.concat_datasets_files(train_list,base_dire='test_data')
         if transformer:
             data_set = transformer(data_set)
@@ -195,8 +202,9 @@ def one_time_test():
             test_data_set = transformer(test_data_set)
 
         hgrar = HyGRAR(test, hgrar_attributes['min_s'], hgrar_attributes['min_c'], hgrar_attributes['min_membership'] ,
-                       nn_model_creation='retrain')
+                       nn_model_creation='reuse', rule_max_length=3)
         hgrar.train(data_set[features],data_set[class_col])
+        hgrar.save_grars()
         predictions  = hgrar.predict(test_data_set,3)
         matrix = Matrix()
         matrix.update_matrix_bulk(predictions)
@@ -205,12 +213,22 @@ def one_time_test():
         print_matrix(matrix, "prediction on "+test)
 
 
+def test_saved_hgrar():
+    ds = util.concat_datasets_files(['ar1.csv'], base_dire='test_data')
+    hgrar = HyGRAR.load_hgrar('ar1.csv', 3)
+    predictions = hgrar.predict(ds, 3)
+    matrix = Matrix()
+    matrix.update_matrix_bulk(predictions)
+    print_matrix(matrix, "prediction on " + 'ar1')
+
+
 def usecase_data(id):
     if id == 1:
         all_data_sets = ['ar1.csv', 'ar3.csv', 'ar4.csv', 'ar5.csv', 'ar6.csv']
-        features = ['unique_operators', 'halstead_vocabulary']
+        #
+        features = ['unique_operators', 'halstead_vocabulary', 'unique_operands']
         class_col = 'defects'
-        return  all_data_sets, features, class_col,(len(features),) , 'AR', None
+        return  all_data_sets, features, class_col, 'AR', None
     elif id == 2:
         def transform( dataset ):
             faulty = dataset['bug'] > 0
@@ -220,8 +238,9 @@ def usecase_data(id):
         all_data_sets = ['ant-1.7.csv', 'jedit-3.2.csv', 'jedit-4.0.csv', 'jedit-4.1.csv', 'jedit-4.2.csv','jedit-4.3.csv']
         features = ['wmc', 'cbo']
         class_col = 'bug'
-        return all_data_sets, features, class_col,(len(features),) , 'jedit_ant', transform
+        return all_data_sets, features, class_col, 'jedit_ant', transform
 
 
 if __name__ == '__main__':
-    one_time_test()
+    #one_time_test()
+    test_saved_hgrar()

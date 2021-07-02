@@ -3,6 +3,9 @@ from model.grar.operator import Operator
 from NR.nural_network import Basic_NN
 import model.grar.exceptions as exception
 import numpy as np
+from NR.perceptron_keras import MLP
+from NR.RFBN import RFBN
+from NR.nural_network import RFBN_MODELS_PATH, MLP_MODELS_PATH
 
 
 class AnnOperator(Operator):
@@ -14,17 +17,52 @@ class AnnOperator(Operator):
         self.model = model
 
     def apply(self, *values):
-        prediction = self.model.predict_with_membership_degree( np.expand_dims(np.asarray(values),0))[0]
+        prediction = self.model.predict_with_membership_degree(*values)[0]
         if self.operator_type == OperatorType.FAULTY:
             member_ship = prediction[True]
         else:
             member_ship = prediction[False]
         return member_ship
 
+    # def revers(self):
+    #     if self.operator_type == OperatorType.FAULTY:
+    #         return AnnOperator(OperatorType.NON_FAULTY, self.model)
+    #     else:
+    #         return AnnOperator(OperatorType.FAULTY, self.model)
+
     def revers(self):
-        if self.operator_type == OperatorType.FAULTY:
-            return AnnOperator(OperatorType.NON_FAULTY, self.model)
-        else:
-            return AnnOperator(OperatorType.FAULTY, self.model)
+        return self
+
+    def create_object( self ):
+        obj = {
+            "class": "AnnOperator",
+            "operator_type": self.operator_type.value,
+            "NN_model": {
+                "class": type(self.model).__name__,
+                "identifier": self.model.identifier,
+                "features": self.model.features_names
+            }
+        }
+        return obj
+
+    def create_from_obj(  obj ):
+        classs = obj.get('NN_model').get('class')
+        identifier = obj.get('NN_model').get('identifier')
+        features = obj.get('NN_model').get('features')
+        if classs == 'MLP':
+            model = MLP(identifier, features)
+            model.load_models(MLP_MODELS_PATH)
+        elif classs == 'RFBN':
+            model = RFBN(identifier, features)
+            model.load_models(RFBN_MODELS_PATH)
+        return AnnOperator(OperatorType[obj.get('operator_type')], model)
+
+
+    def support_features( self, *args ):
+        return self.model.is_trained_on(*args)
+
+    def __eq__(self, other):
+        return super(AnnOperator, self).__eq__(other) and self.model.identifier == other.model.identifier
+
     def __str__(self):
         return self.model.identifier+' ['+str(self.operator_type)+']'

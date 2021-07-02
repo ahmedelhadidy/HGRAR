@@ -14,20 +14,21 @@ from tensorflow.keras import regularizers
 
 class RFBN(Basic_NN):
     RBF_LAYER_NAME='rbf_layer_name'
-    train_history=None
 
     def _build_model( self, x, y):
         params = self.model_params
         normalization_layer = get_normalizer_layer(params.get('input_shape', (2,)),x)
-        initializer =  kmean_initializer(normalization_layer(x).numpy())
+        #initializer =  kmean_initializer(normalization_layer(x).numpy())
+        initializer = kmean_initializer(x)
         opt_rmsprop = RMSprop(learning_rate=params.get('learning_rate',0.1), momentum=params.get('momentum',0.0),
                               decay=params.get('decay',0.1))
         opt_adam = Adam(learning_rate=0.05)
         model = Sequential([
-            normalization_layer,
+           # normalization_layer,
+            Input(shape=params.get('input_shape', (2,))),
             RBFLayer(params.pop('centers', 2), alpha=params.get('alfa', 0.5) , p=params.get('p', 1),
                      initializer=initializer,name=self.RBF_LAYER_NAME),
-            Dense(2,  activation=activations.softmax)
+            Dense(2,  activation=activations.sigmoid)
         ])
         model.compile(loss=params.get('loss','binary_crossentropy'), optimizer=opt_rmsprop,
                       metrics=['accuracy',m.Recall(name='recall'), m.Precision(name='precision')], run_eagerly=False)
@@ -49,12 +50,14 @@ class RFBN(Basic_NN):
             patience = patience_ration
         early_stop_callback = EarlyStopping(monitor=stop_monitor_metrics, patience=patience, verbose=2,
                                                                restore_best_weights=True)
-        self.train_history = model.fit(x, y, batch_size=params.get('batch_size',10),epochs=epochs,validation_data=(x_val, y_val),
+
+        train_history = model.fit(x, y,epochs=epochs,batch_size=params.get('batch_size',10),validation_data=(x_val, y_val),
                                        callbacks=[early_stop_callback])
         after = model.get_layer(self.RBF_LAYER_NAME).get_weights()[0]
         print('before training ', before, '\n', 'after training ', after)
         if self.visualize:
-            visualize( fs.join(RFBN_MODELS_PATH, self.identifier+'.jpg'), self.train_history,'loss', 'accuracy','recall','precision')
+            visualize( fs.join(RFBN_MODELS_PATH, self.identifier+'.jpg'), train_history,'loss', 'accuracy','recall','precision')
+        return train_history
 
 
 def random_initializer( x ):
