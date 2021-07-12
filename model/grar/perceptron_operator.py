@@ -47,7 +47,7 @@ class AnnOperator(Operator):
         classs = obj.get('NN_model').get('class')
         identifier = obj.get('NN_model').get('identifier')
         features = obj.get('NN_model').get('features')
-        saved_path = obj.get('saved_path')
+        saved_path = obj.get('NN_model').get('saved_path')
         if classs == 'MLP':
             model = MLP(identifier, features)
         elif classs == 'RFBN':

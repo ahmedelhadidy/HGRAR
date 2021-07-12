@@ -1,5 +1,6 @@
 import tensorflow as tf
-from NR.RFBN import RBFLayer, InitCentersRandom
+from NR.RFBN import RBFLayer
+import pandas as pd
 import numpy as np
 from tensorflow.keras.layers.experimental.preprocessing import Normalization
 from NR.RFBN import kmean_initializer
@@ -15,7 +16,16 @@ from model.grar.gRule import GRule
 import model.grar.gRule as gRule
 from hygrar import HyGRAR
 import utils.datapartitional as dutil
-
+import utils.filesystem as fm
+from utils.matrix import Matrix
+from experiment import print_matrix
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+import seaborn
+import numpy as np
+import matplotlib
+from NR.RBF_NN.kmeans_initializer import InitCentersKMeans2
+from NR.RFBN import RFBN
 
 class TestInit(Initializer):
     """ Initializer for initialization of centers of RBF network
@@ -32,49 +42,78 @@ class TestInit(Initializer):
         return self.X
 
 def test_rbf():
+    input_data = dutil.concat_datasets_files(['ar1.csv'], base_dire='test_data')
+    x = np.asarray(input_data[['unique_operators', 'halstead_vocabulary']])
+    y= np.asarray(input_data[['defects']])
+    normalizer = Normalization(input_shape=(2,))
+    normalizer.adapt(x)
+    input_data = normalizer(x)
+    f = np.where(y)[0]
+    nf = np.where(y == False)[0]
+    x_faulty = x[f]
+    x_not_faulty = x[nf]
 
-    input_data = np.array([[-0.47681463 ,-0.6508253 ],
-                             [ 0.4128518  ,-0.4056642 ],
-                             [ 2.3404624  , 3.5441537 ],
-                             [-0.18025915 ,-0.32394385],
-                             [ 0.11629633 ,-0.48738456],
-                             [ 2.043907   , 3.271752  ],
-                             [-1.3664811  ,-0.92322654],
-                             [ 0.56112957 ,-0.48738456],
-                             [-0.47681463 ,-0.7597858 ],
-                             [-0.6250924  ,-0.59634507],
-                             [-0.92164785 ,-0.814266  ],
-                             [-0.92164785 ,-0.2694636 ],
-                             [ 1.3025182  , 0.4660197 ],
-                             [-0.18025915 ,-0.2694636 ],
-                             [ 0.56112957 , 0.32981908],
-                             [-0.3285369  ,-0.5146247 ],
-                             [-0.6250924  ,-0.5691049 ],
-                             [ 0.26457408 , 0.22085859],
-                             [ 0.56112957 , 0.35705918],
-                             [ 0.56112957 , 0.22085859],
-                             [-0.03198141 ,-0.10602287],
-                             [-0.7733701  ,-0.8959864 ],
-                             [ 0.56112957 ,-0.4056642 ],
-                             [-0.18025915 ,-0.5418648 ],
-                             [-1.3664811  ,-1.0049468 ],
-                             [-1.2182033  ,-0.7597858 ],
-                             [-1.3664811  ,-1.032187  ],
-                             [ 0.857685   , 0.95634186],
-                             [-1.3664811  ,-1.0866672 ],
-                             [ 2.6370177  , 1.6101048 ]])
+    #initializer=kmean_initializer(x)
+    initializer = InitCentersKMeans2(x_faulty,x_not_faulty)
+    centers = initializer(shape=(2,2))
+    rbf_layer = RBFLayer(2, initializer=initializer, alpha=0.5)
+    distances = rbf_layer(tf.constant(x, dtype=float)).numpy()
+    print(centers)
+    visualize(centers,x,y,distances)
 
-    centers = np.array([[-0.93249744, -0.7717447 ],
-       [ 1.4238365 ,  1.5469573 ],
-       [5,5]
-                        ])
 
-    test_input = tf.constant(input_data, dtype=float)
-    init = TestInit(centers)# kmean_initializer(input_data)
-    rbflayer = RBFLayer(3, initializer=init, p=2, alpha=0.5,  name='test')(test_input)
-    d = tf.keras.layers.Dense(2, activation=tf.keras.activations.softmax)(rbflayer)
-    tf.print(rbflayer)
-    tf.print(d)
+def test_rbf_model():
+    run_id='123'
+    usecase = 'ar1.csv'
+    input_data = dutil.concat_datasets_files([usecase], base_dire='test_data')
+    x = np.asarray(input_data[['unique_operators', 'halstead_vocabulary']])
+    y= np.asarray(input_data[['defects']])
+    normalizer = Normalization(input_shape=(2,), dtype=float)
+    normalizer.adapt(x)
+    x = normalizer(x)
+    f = np.where(y)[0]
+    nf = np.where(y == False)[0]
+
+
+    model = RFBN('rfbn_ar1.csv_2_unique_operators##halstead_vocabulary')
+    base = fm.get_relative_to_home('hygrar')
+    path = fm.join(base,run_id, usecase, RFBN_MODELS_PATH)
+    model.load_models(path)
+    rbf_layer = model._model.get_layer(RFBN.RBF_LAYER_NAME)
+    centers = rbf_layer.get_weights()[0]
+
+    distances = rbf_layer(x)
+    print(centers)
+    visualize(centers,x.numpy(),y,distances.numpy())
+
+
+def visualize(centers, data, y,distances):
+    jitter = .3
+    f = plt.figure(1, figsize=(15,8))
+    c1_dis  = distances[:,0]
+    c2_dis = distances[:,1]
+    center_dis_arr = np.where(c1_dis < c2_dis, 0,1)
+    color_palette={0: 'red', 1:'green'}
+    f = np.where(y)[0]
+    nf = np.where(y == False)[0]
+    data_faulty=data[f]
+    data_not_faulty = data[nf]
+    center_dis_faulty = center_dis_arr[f]
+    print(center_dis_faulty)
+    center_dis_non_faulty = center_dis_arr[nf]
+
+
+    seaborn.scatterplot(x=data_not_faulty[:, 0], y=data_not_faulty[:, 1], hue=center_dis_non_faulty, palette=color_palette,
+                        marker='o', x_jitter=-jitter, y_jitter=-jitter)
+    seaborn.scatterplot(x=data_faulty[:,0], y=data_faulty[:,1] , hue=center_dis_faulty, palette=color_palette, marker='x' , x_jitter=jitter, y_jitter=jitter)
+
+    seaborn.scatterplot(x=centers[:, 0], y=centers[:, 1], hue=[0,1], palette=color_palette, marker='^')
+
+
+    #plt.scatter(data_faulty[:,0], data_faulty[:,1],c = center_dis_faulty,cmap=cmaps, marker='x')
+    #plt.scatter(data_not_faulty[:, 0], data_not_faulty[:, 1],c=center_dis_non_faulty,cmap=cmaps, marker='o')
+    #plt.scatter(centers[:, 0], centers[:, 1],c=[0,1], cmap=cmaps,marker='^')
+    plt.show()
 
 
 def test_euclidean():
@@ -214,10 +253,11 @@ def get_columns(base_dir, files, columns):
             row+= column_data[h][index]+'\t\t'
         print(row)
 
-def fun(*names):
-    print(len(*names))
+def fun(*names , test='dodo'):
+    print(len(names))
     for ind, v in enumerate(names):
         print(ind,"  ",v)
+    print(test)
 
 def test_op_type():
     term1 = Term(Item('i1',0), AnnOperator(OperatorType.FAULTY, None))
@@ -258,6 +298,76 @@ def test_grul_terms_identical():
 
     assert  gRule._is_terms_identical(rule1, rule2)
 
+def get_normalizer(shape):
+    datasources_conc = dutil.concat_datasets_files(['ar3.csv', 'ar4.csv', 'ar5.csv', 'ar6.csv'], base_dire='test_data')
+    datasources_conc = datasources_conc[['unique_operators', 'halstead_vocabulary', 'unique_operands']]
+    datasources_conc_arr = np.asarray(datasources_conc)
+    normalizer = Normalization(input_shape=shape, mean=0, variance=1)
+    normalizer.adapt(datasources_conc_arr)
+    return normalizer
+
+def test_normalization():
+    datasources = ['ar1.csv','ar3.csv','ar4.csv','ar5.csv','ar6.csv']
+    rows_list = []
+    rows_list.append(['unique_operators', 'halstead_vocabulary', 'unique_operands', 'unique_operators_normalized',
+                      'halstead_vocabulary_normalized', 'unique_operands_normalized', 'data_set'])
+    for ds_name in datasources:
+        ds = dutil.concat_datasets_files([ds_name], base_dire='test_data')
+        ds = ds[['unique_operators', 'halstead_vocabulary', 'unique_operands']]
+        ds_arr = np.asarray(ds)
+        len = ds_arr.shape[0]
+        input_shape = (3,)
+        ds_arr_norm = get_normalizer(input_shape)(ds_arr)
+        for i in range(len):
+            rows_list.append(np.concatenate((ds_arr[i],ds_arr_norm[i],np.array([ds_name]))))
+    with open(fm.get_relative_to_home('normalization_result_mean_0.csv'), 'w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerows(rows_list)
+
+def test_euclidean_distance1():
+    a = tf.constant(np.array([[1,2], [3.3, 4.4]]))
+    b = tf.constant(np.array([[5.5,6.6],[7,8],[9.9, 10.1]]))
+    d = euclidean_distance(a,b)
+    tf.print(d)
+
+
+def test_euclidean_distance2():
+    a = tf.constant(np.array([[1, 2, 3,4 ], [-4, -5 ,-6, -7], [6, 7, 8,9]]), dtype=float)
+    b = tf.constant(np.array([[1, 2, 3, 4], [1, 1, 1, 1]]), dtype=float)
+    d = euclidean_distance(a, b)
+    tf.print(d)
+
+def euclidean_distance(input_data,centers):
+    na = tf.reduce_sum(tf.square(input_data), 1)
+    nb = tf.reduce_sum(tf.square(centers), 1)
+    # na as a row and nb as a co"lumn vectors
+    na = tf.reshape(na, [-1, 1])
+    nb = tf.reshape(nb, [1, -1])
+
+    # return pairwise euclidead difference matrix
+    r = tf.sqrt(tf.maximum(na - 2 * tf.matmul(input_data, centers, False, True) + nb, 0.0))
+    return r
+
+def test_saved_hgrar():
+    grars_count = 10
+    run_id='45'
+    ds = dutil.concat_datasets_files(['ar1.csv'], base_dire='test_data')
+    hgrar = HyGRAR.load_hgrar(run_id,'ar1.csv', grars_count)
+    predictions = hgrar.predict(ds, grars_count)
+    matrix = Matrix()
+    matrix.update_matrix_bulk(predictions)
+    print_matrix(matrix, "prediction on " + 'ar1')
+
+def test_multiple_adapt():
+    ar1 = np.array([1,2,3])
+    ar2 = np.array([5,6])
+    n = Normalization()
+    n.adapt(ar1)
+    print(n.mean, n.variance , sep='\t')
+    n.adapt(ar2, reset_state=False)
+    print(n.mean, n.variance, sep='\t')
+
+
 import math
 if __name__ == '__main__':
-    pass
+    test_rbf_model()

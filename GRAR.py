@@ -74,7 +74,7 @@ def __scan_get_interesting_rules(candidate_rules,dataset, min_s, min_c, min_memb
         s,c, m = __calculate_support_confidence_membership(rule, dataset, min_membership)
         if s >= min_s and c >= min_c:
             interesting_rules.append((rule,m))
-            LOGGER.debug('grule %s support  %f confidence %f membership %f' % (str(rule), s, c, m))
+            LOGGER.debug('tested grule %s with support  %f confidence %f membership %f' % (str(rule), s, c, m))
         LOGGER.debug('check %d/%d rules fot interesting ', total_checked_rules, total_rules_count)
     return interesting_rules
 
@@ -87,7 +87,7 @@ def __calculate_support_confidence_membership(rule:GRule, dataset, min_membershi
     for index,row in dataset.iterrows():
         if __all_rule_items_present(row, rule.get_all_items()):
             s_counter+=1
-            membership_degree = rule.calculate_membership_degree_avg(row)
+            membership_degree = rule.calculate_membership_degree(row)
             if membership_degree >= min_membership:
                 c_counter+=1
                 m_c += membership_degree

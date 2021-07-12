@@ -7,15 +7,18 @@ import utils.filesystem as fs
 import numpy as np
 import math
 import json
+from tensorflow.keras import backend as k
+from NR.gradient_track import GradCallback
+import logging
 
 RFBN_MODELS_PATH= 'rfbn_models'
 MLP_MODELS_PATH= 'mlp_models'
 
+LOGGER=logging.getLogger(__name__)
+
 class Basic_NN:
 
-    tf.get_logger().setLevel('ERROR')
-
-    def __init__(self, name,features_names:[], visualize = False , **kwargs):
+    def __init__(self, name,features_names:[] = [], visualize = False , **kwargs):
         self.identifier = name
         self.features_names = features_names
         self.do_visualize = visualize
@@ -25,18 +28,27 @@ class Basic_NN:
     def _build_model( self, x, y):
         pass
 
-    def train_model( self,x,y ):
+    def train_model( self,x,y , **kwargs):
         self._model = self._build_model(x,y)
         x, y, (true_validation_x, true_validation_y), (false_validation_x, false_validation_y) = \
             get_value_wise_subsets(x, y, ([0, 1], 0.1), ([1, 0], 0.1))
         x_val = np.concatenate((true_validation_x, false_validation_x), axis=0)
         y_val = np.concatenate((true_validation_y, false_validation_y), axis=0)
-        history =  self._train_model(x,y,x_val, y_val, self._model)
+        callbacks = self.__get_callbacks__(x,y,**kwargs)
+        history =  self._train_model(x,y,x_val, y_val, self._model,callbacks=callbacks)
         self.train_history = history.history
         self.train_history['epoch'] = history.epoch
         return self.train_history
 
-    def _train_model( self,x, y, x_val, y_val, model):
+    def __get_callbacks__( self,x,y, **kwargs ):
+        callbacks=[]
+        if kwargs.get('tensorboard_dir', None) is not None:
+            dir = fs.join(kwargs.get('tensorboard_dir'),self.identifier+'_tensorboard')
+            callback_tb = GradCallback(dir,x,y)
+            callbacks.append(callback_tb)
+        return callbacks
+
+    def _train_model( self,x, y, x_val, y_val, model,callbacks=[]):
         pass
 
     def load_models( self, model_path ):
@@ -53,6 +65,7 @@ class Basic_NN:
             self.model_params = obj['model_params']
             self.train_history = obj['training_history']
             self.saved_path = obj['saved_path']
+            self.features_names = obj['features_names']
             return True
         except (IOError, ImportError) as err:
             print(err)
@@ -67,6 +80,7 @@ class Basic_NN:
                 self.visualize(fs.join(model_path, self.identifier + '.jpg'),
                                'loss', 'accuracy','precision', 'recall')
             self.saved_path = model_path
+
 
     def create_object( self, model_path ):
         obj={}
@@ -91,6 +105,7 @@ class Basic_NN:
         result_predictions = []
         for p in predictions:
             result_predictions.append(self.build_prediction_object(class_arr, p))
+        #LOGGER.debug('prediction model [%s] test values [%s] prediction %s', self.identifier, *x_instances, result_predictions)
         return result_predictions
 
     def predict_dataset_with_membership_degree( self, *args ):
@@ -154,7 +169,18 @@ class Basic_NN:
         fs.delete(path)
         plt.savefig(path)
 
+    def get_gradient( self ):
+        layers = self._model.layers
+        variables = self._model.trainable_weights
+        tf.gradients(self._model.total_loss, variables)
+        gradients = k.gradients(layers[1].output, variables)
+        print('gradients =', gradients , sep='\t')
 
+    def good_to_use( self, accuracy_limit ):
+        return True
+
+    def get_avg_accuracy( self ):
+        pass
 
 def get_normalizer_layer(input_shape, x):
     normalizer = Normalization(input_shape=input_shape)
@@ -173,9 +199,6 @@ def next_cell(row, column, rows_count, columns_count):
         return row, column+1
 
 
-
-
-
 def get_value_wise_subsets(x, y, *args):
     r = []
     for val, percentage in args:
@@ -184,7 +207,7 @@ def get_value_wise_subsets(x, y, *args):
             percentage_val = percentage
         else:
             percentage_val = math.ceil(len(indexes)*percentage)
-        indexes = indexes[0:percentage_val]
+        indexes = np.random.choice(indexes, percentage_val, replace= False)
         extr_x = x[indexes]
         extr_y = y[indexes]
         r.append((extr_x, extr_y))

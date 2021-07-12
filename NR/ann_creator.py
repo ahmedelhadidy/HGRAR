@@ -6,6 +6,9 @@ from NR.RFBN import RFBN
 from utils import filesystem as fs
 from NR.nural_network import RFBN_MODELS_PATH, MLP_MODELS_PATH
 from itertools import combinations
+import logging
+
+LOGGER = logging.getLogger(__name__)
 
 
 def create_ANN_models( model_path, use_case, dataset, features_col_names, class_col_name, nn_model_strategy='retrain', perceptron_init_param = None, rfbn_init_param = None ):
@@ -24,13 +27,16 @@ def create_ANN_models( model_path, use_case, dataset, features_col_names, class_
     '''
     models = []
     ohenc = OneHotEncoder([False, True])
-    #dataset = dataset.sample(frac=1).reset_index(drop=True)
+
     balanced_sets = util.create_balanced_buckets(dataset,class_col_name)
     perceptron_template = 'perceptron_{}_{}_{}##{}'
     rfbn_template = 'rfbn_{}_{}_{}##{}'
     counter=1
+    buckets_count = len(balanced_sets)
+    comb_len = sum(1 for ignore in combinations(features_col_names,2))
+    LOGGER.info('will train %d models for %d buckets', buckets_count*2*comb_len, buckets_count)
     for balanced_set in balanced_sets:
-        print('balanced dataset shape = ',balanced_set.shape)
+        LOGGER.debug('balanced dataset shape = %s',balanced_set.shape)
         for f1, f2 in combinations(features_col_names,2):
             perceptron_model_name = perceptron_template.format(use_case, counter, f1, f2)
             rbf_model_name = rfbn_template.format(use_case, counter, f1, f2)
@@ -40,9 +46,11 @@ def create_ANN_models( model_path, use_case, dataset, features_col_names, class_
 
             mlp = _get_nn_model(x, y, model_path, [f1, f2], perceptron_model_name, MLP, nn_model_strategy, visualise= True, **perceptron_init_param )
             models.append(mlp)
-
-            rfbn = _get_nn_model(x, y, model_path, [f1, f2], rbf_model_name, RFBN, nn_model_strategy, visualise= True, **rfbn_init_param )
-            models.append(rfbn)
+            try:
+                rfbn = _get_nn_model(x, y, model_path, [f1, f2], rbf_model_name, RFBN, nn_model_strategy, visualise= True, **rfbn_init_param )
+                models.append(rfbn)
+            except Exception as e:
+                LOGGER.error('failed to create model %s', rbf_model_name)
 
         counter+=1
     return models
@@ -65,14 +73,15 @@ def create_ANN_models2(models_path, run_id, datasets, features_col_names, class_
             mlp = _get_nn_model(x, y, perceptron_model_name, MLP, nn_model_strategy, visualise= True, **perceptron_init_param )
             models.append(mlp)
 
-            rfbn = _get_nn_model(x, y, rbf_model_name, RFBN, nn_model_strategy, visualise= True, **rfbn_init_param )
-            models.append(rfbn)
+            #rfbn = _get_nn_model(x, y, rbf_model_name, RFBN, nn_model_strategy, visualise= True, **rfbn_init_param )
+            #models.append(rfbn)
 
             counter+=1
     return models
 
 
 def _get_nn_model(x,y, run_path, features_names, model_name, model_type, nn_model_strategy, visualise=False, **kwargs):
+    LOGGER.debug("create or load model [%s]", model_name)
     if model_type == MLP:
         model = MLP(model_name, features_names, visualize=visualise, **kwargs)
         path = fs.join(run_path, MLP_MODELS_PATH)
@@ -86,7 +95,7 @@ def _get_nn_model(x,y, run_path, features_names, model_name, model_type, nn_mode
             if nn_model_strategy == 'reuse':
                 return model
             else:
-                model.train_model(x, y)
+                model.train_model(x, y, tensorboard_dir=path)
                 model.save(path)
         else:
             fs.delete(path, model_name)
@@ -95,7 +104,7 @@ def _get_nn_model(x,y, run_path, features_names, model_name, model_type, nn_mode
 
     elif nn_model_strategy == 'retrain':
         fs.delete(path, model_name)
-        model.train_model(x, y)
+        model.train_model(x, y, tensorboard_dir=path)
         model.save(path)
 
     return model

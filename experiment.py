@@ -152,42 +152,42 @@ def one_time_test2():
 
 
 @Timer(text="one_time_test executed in {:.2f} seconds")
-def one_time_test():
-    run_id='22'
-    all_data_sets, features, class_col, result_prefix, transformer = usecase_data(1)
+def one_time_test(run_id, usecase_id):
+
+    all_data_sets, features, class_col, result_prefix, transformer = usecase_data(usecase_id)
     HyGRAR.PERCEPTRON_INIT_PARAM = {
         'learning_rate': 0.1,
         'input_shape': (2,),
-        'batch_size': None,
-        'epochs': 1000,
-        'loss': 'mean_squared_error',
-        #'loss': 'categorical_crossentropy',
-        'early_stop_patience_ratio': 1.0,
+        'batch_size': 10,
+        'epochs': 5000,
+        'loss':  'mean_squared_error',
+        'early_stop_patience_ratio': 200,
         'early_stop_monitor_metric': 'loss',
+        'early_stop_min_delta': 10**-3,
         'decay': 0.1,
         'momentum': 0.1
     }
 
     HyGRAR.PFBN_INIT_PARAM = {
         'centers': 2,
-        'alfa': 0.5,
+        'alfa': 0.3,
         'p': 1,
         'learning_rate': 0.1,
         'decay': 0.1,
-        'momentum': 0,
+        'momentum': 0.1,
         'input_shape': (2,),
-        'batch_size': None,
-        'epochs': 1000,
+        'batch_size': 10,
+        'epochs': 5000,
         'loss': 'mean_squared_error',
-        #'loss': 'categorical_crossentropy',
-        'early_stop_patience_ratio': 1.0,
-        'early_stop_monitor_metric': 'loss'
+        'early_stop_patience_ratio': 200,
+        'early_stop_monitor_metric': 'loss',
+        'early_stop_min_delta': 10**-3
     }
 
     hgrar_attributes = {
         'min_s': 1,
         'min_c': 0.5,
-        'min_membership': 0.5
+        'min_membership': 0.01
     }
 
     results=[]
@@ -202,8 +202,8 @@ def one_time_test():
             test_data_set = transformer(test_data_set)
 
         hgrar = HyGRAR(run_id,test, hgrar_attributes['min_s'], hgrar_attributes['min_c'], hgrar_attributes['min_membership'] ,
-                       nn_model_creation='reuse', rule_max_length=3)
-        hgrar.train(data_set[features],data_set[class_col])
+                       nn_model_creation='retrain', rule_max_length=2, d1_percentage=0.6)
+        hgrar.train(data_set[features],data_set[[class_col]])
         hgrar.save_grars()
         predictions  = hgrar.predict(test_data_set,3)
         matrix = Matrix()
@@ -213,11 +213,11 @@ def one_time_test():
         print_matrix(matrix, "prediction on "+test)
 
 
-def test_saved_hgrar():
-    grars_count = 3
-    ds = util.concat_datasets_files(['ar1.csv'], base_dire='test_data')
-    hgrar = HyGRAR.load_hgrar('ar1.csv', grars_count)
-    predictions = hgrar.predict(ds, grars_count)
+def test_saved_hgrar(run_id, usecase, grar_count):
+
+    ds = util.concat_datasets_files([usecase], base_dire='test_data')
+    hgrar = HyGRAR.load_hgrar(run_id,usecase, grar_count)
+    predictions = hgrar.predict(ds, grar_count)
     matrix = Matrix()
     matrix.update_matrix_bulk(predictions)
     print_matrix(matrix, "prediction on " + 'ar1')
@@ -237,11 +237,11 @@ def usecase_data(id):
             dataset['bug'] = faulty
             return dataset
         all_data_sets = ['ant-1.7.csv', 'jedit-3.2.csv', 'jedit-4.0.csv', 'jedit-4.1.csv', 'jedit-4.2.csv','jedit-4.3.csv']
-        features = ['wmc', 'cbo']
+        features = ['wmc', 'cbo','rfc']
         class_col = 'bug'
         return all_data_sets, features, class_col, 'jedit_ant', transform
 
 
 if __name__ == '__main__':
-    one_time_test()
-    test_saved_hgrar()
+    one_time_test('133', 2)
+    #test_saved_hgrar('130', 'ar3.csv', 10)

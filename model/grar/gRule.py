@@ -47,7 +47,7 @@ class GRule:
             sum_member_ship_degree += member_ship_degree
             count += 1
 
-        return sum_member_ship_degree /count
+        return sum_member_ship_degree / count
 
     def get_all_items(self):
         return list([term.item for term in self.g_rule_set])

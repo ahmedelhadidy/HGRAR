@@ -5,43 +5,52 @@ import tensorflow.keras.metrics as m
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping
 import utils.filesystem as fs
-from tensorflow.keras.regularizers import l2
+from tensorflow.keras.regularizers import l2 , l1_l2
+from tensorflow.keras.layers import BatchNormalization
 
 class MLP(Basic_NN):
 
     def _build_model( self,x,y):
 
         params = self.model_params
-        normalization_layer = get_normalizer_layer(params.get('input_shape', (2,)), x)
+        lr = params.get('learning_rate', 0.1)
+        decay = params.get('decay', 0.1)
+        momentum = params.get('momentum', 0.0)
+        input_shape = params.get('input_shape', (2,))
+        loss_str = params.get('loss', 'binary_crossentropy')
+        loss = tf.keras.losses.get(loss_str)
 
+        #dense_initializer = tf.keras.initializers.RandomNormal(mean=0, stddev=1)
+        dense_initializer = tf.keras.initializers.RandomUniform(0.0, 1.0)
+
+        normalization_layer = get_normalizer_layer(input_shape, x)
         model = Sequential([
+            #tf.keras.layers.Input(shape=input_shape),
             normalization_layer,
-            #tf.keras.layers.Input(shape=params.get('input_shape', (2,))),
-            tf.keras.layers.Dense(2, activation=activations.sigmoid),
-            tf.keras.layers.Dense(2, activation=activations.softmax)
+            tf.keras.layers.Dense(2, activation=activations.sigmoid, kernel_initializer=dense_initializer, kernel_regularizer='l2' , bias_regularizer='l2' ),
+            tf.keras.layers.Dense(2, activation=activations.softmax, kernel_initializer=dense_initializer)
         ])
-        #kernel_regularizer=l2(1e-4), bias_regularizer=l2(1e-4)
-        opt= optimizers.RMSprop(learning_rate=params.get('learning_rate',0.1), momentum=params.get('momentum',0.0),decay=params.get('decay',0.1))
+        opt= optimizers.RMSprop(learning_rate=lr, momentum=momentum,decay=decay)
+        #opt = optimizers.SGD(learning_rate=lr, momentum=momentum, decay=decay)
+        #opt = optimizers.Adam(learning_rate=params.get('learning_rate', 0.1), decay=params.get('decay',0.1))
 
-        #opt = optimizers.Adam(learning_rate=params.get('learning_rate', 0.1),decay=params.get('decay',0.1))
-
-        model.compile(loss=params.get('loss', 'binary_crossentropy'), optimizer=opt,  metrics=['accuracy', m.Precision(name='precision'),
-                                                                                               m.Recall(name='recall')])
+        model.compile(loss=loss,metrics=['accuracy', m.Precision(name='precision'),m.Recall(name='recall')], run_eagerly=False)
         model.summary()
         return model
 
-    def _train_model( self, x, y, x_val, y_val, model ):
+    def _train_model( self, x, y, x_val, y_val, model,callbacks=[] ):
         params = self.model_params
         epochs = params.get('epochs',2000)
+        batch_size = params.get('batch_size', 10)
         patience_ration = params.get('early_stop_patience_ratio', 0.1)
         stop_monitor_metrics = params.get('early_stop_monitor_metric', 'loss')
+        min_delta = params.get('early_stop_min_delta', 0)
         if patience_ration <= 1:
             patience = int(epochs * patience_ration)
         else:
             patience = patience_ration
-        early_stop_callback = EarlyStopping(monitor=stop_monitor_metrics, patience=patience,verbose=2, restore_best_weights=True)
-
-        train_history = model.fit(x, y, epochs=epochs,batch_size=params.get('batch_size',10),validation_data=(x_val, y_val),
-                                       callbacks=[early_stop_callback])
+        early_stop_callback = EarlyStopping(monitor=stop_monitor_metrics, patience=patience,verbose=2, restore_best_weights=True, min_delta=min_delta)
+        callbacks.append(early_stop_callback)
+        train_history = model.fit(x, y, epochs=epochs,batch_size=batch_size,validation_data =(x_val, y_val), callbacks=callbacks )
 
         return train_history

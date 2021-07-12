@@ -138,7 +138,7 @@ def concat_datasets_files(datasets_files: [], base_dire=None):
         datasets.append(pd.read_csv(absolute_files_path,index_col=False))
     if not is_same_datasets(datasets):
         raise Exception('datasets are not identical, can''t merge them')
-    return pd.concat(datasets)
+    return pd.concat(datasets, ignore_index=True)
 
 
 def is_same_datasets(datasets:[]):
