@@ -1,9 +1,7 @@
+import logging
 import tensorflow as tf
 from NR.RFBN import RBFLayer
-import pandas as pd
-import numpy as np
 from tensorflow.keras.layers.experimental.preprocessing import Normalization
-from NR.RFBN import kmean_initializer
 import os.path as path
 import csv
 from tensorflow.keras.initializers import Initializer
@@ -20,12 +18,15 @@ import utils.filesystem as fm
 from utils.matrix import Matrix
 from experiment import print_matrix
 import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
 import seaborn
 import numpy as np
-import matplotlib
+from utils.one_hot_encoder import OneHotEncoder
+
 from NR.RBF_NN.kmeans_initializer import InitCentersKMeans2
-from NR.RFBN import RFBN
+
+logging.config.fileConfig('logging.conf', disable_existing_loggers=False)
+LOGGER = logging.getLogger(__name__)
+logging.disable(logging.NOTSET)
 
 class TestInit(Initializer):
     """ Initializer for initialization of centers of RBF network
@@ -63,7 +64,7 @@ def test_rbf():
 
 
 def test_rbf_model():
-    run_id='123'
+    run_id='144'
     usecase = 'ar1.csv'
     input_data = dutil.concat_datasets_files([usecase], base_dire='test_data')
     x = np.asarray(input_data[['unique_operators', 'halstead_vocabulary']])
@@ -207,26 +208,24 @@ from NR.perceptron_keras import MLP
 from NR.RFBN import RFBN
 
 
-def _test_model(type, name , data):
+def _test_model(run_id, case_id, type, name , data):
+    base_path = fm.get_relative_to_home('hygrar')
+    base_path = fm.join(base_path,run_id,case_id)
     if type == MLP:
         model = MLP(name=name)
-        model.load_models(MLP_MODELS_PATH)
+        base_path = fm.join(base_path, MLP_MODELS_PATH)
+        model.load_models(base_path)
     else:
         model = RFBN(name=name)
-        model.load_models(RFBN_MODELS_PATH)
-    p = model.predict_with_membership_degree(np.array(data))
+        base_path = fm.join(base_path, RFBN_MODELS_PATH)
+        model.load_models(base_path)
+    p = model.predict_with_membership_degree(data)
     print('%s prediction is %s'%(name, str(p)))
 
 
-def test_model():
-    data = np.array([[15, 49]])
-    _test_model(MLP, 'perceptron_ar1.csv_22', data)
-    _test_model(RFBN, 'rfbn_ar1.csv_22', data)
-    _test_model(MLP, 'perceptron_ar1.csv_17', data)
+def test_model(run_id, case_id, type, model_name, data):
+    _test_model(run_id, case_id, type, model_name, data)
 
-    _test_model(RFBN, 'rfbn_ar1.csv_16', data)
-    _test_model(MLP, 'perceptron_ar1.csv_15', data)
-    _test_model(MLP, 'perceptron_ar1.csv_14', data)
 
 
 
@@ -349,8 +348,8 @@ def euclidean_distance(input_data,centers):
     return r
 
 def test_saved_hgrar():
-    grars_count = 10
-    run_id='45'
+    grars_count = 3
+    run_id='149'
     ds = dutil.concat_datasets_files(['ar1.csv'], base_dire='test_data')
     hgrar = HyGRAR.load_hgrar(run_id,'ar1.csv', grars_count)
     predictions = hgrar.predict(ds, grars_count)
@@ -367,7 +366,40 @@ def test_multiple_adapt():
     n.adapt(ar2, reset_state=False)
     print(n.mean, n.variance, sep='\t')
 
+from NR.normalizers import Normalizer
+
+def test_np_man_min():
+    x = np.asarray([[1,2,3], [1,2,3], [4,5,6], [6,5,2]])
+    mx = np.max(x, axis=0)
+    mi = np.min(x, axis=0)
+    minus = mx-mi
+    normalizer = Normalizer(0.8)
+    normalized = normalizer(x)
+    print(normalized)
 
 import math
 if __name__ == '__main__':
-    test_rbf_model()
+    #obj = {'unique_operators': 19, 'halstead_vocabulary': 55, 'unique_operands': 36}
+    #model_name = 'perceptron_ar1.csv_2_unique_operators##halstead_vocabulary'
+    #test_model('149', 'ar1.csv', MLP, model_name, obj)
+    #test_saved_hgrar()
+    #test_rbf_model()
+    test_array=np.array(
+        [
+            [1,2],
+            [4,5],
+            [9,10],
+            [11,12],
+            [22,33]
+        ],
+        dtype=float
+    )
+
+    test_y = np.array([True,False,True,True,False])
+    indecies = np.where(test_y)
+
+    test_subt= np.full(fill_value=0.1, shape=(2,), dtype=float)
+    print(test_subt)
+    test_array[indecies,:] = test_array[indecies,:] - test_subt
+
+    print(test_array)

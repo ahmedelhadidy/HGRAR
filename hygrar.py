@@ -35,7 +35,7 @@ class HyGRAR:
         'early_stop_monitor_metric': 'val_loss'
     }
 
-    def __init__( self, run_id, use_case, grar_min_support, grar_min_confidence, grar_min_membership_degree, nn_model_creation='retrain', rule_max_length=None , d1_percentage=0.6 ):
+    def __init__( self, run_id, use_case, grar_min_support, grar_min_confidence, grar_min_membership_degree, nn_model_creation='retrain', rule_max_length=None , d1_percentage=0 ):
         self.min_support = grar_min_support
         self.min_confidence = grar_min_confidence
         self.min_membership_degree = grar_min_membership_degree
@@ -72,32 +72,35 @@ class HyGRAR:
                                                   rule_max_length=self.rule_max_length, max_rule_count=None)
 
     def split_to_d1_d2( self,x, y  ):
-        true_cond = y[self.class_col] == True
-        false_cond = y[self.class_col] == False
+        if self.training_phase1_percenatge == 0:
+            return (x,y), (x,y)
+        else:
+            true_cond = y[self.class_col] == True
+            false_cond = y[self.class_col] == False
 
-        x_df_true = x[true_cond]
-        x_df_false = x[false_cond]
+            x_df_true = x[true_cond]
+            x_df_false = x[false_cond]
 
-        y_df_true = y[true_cond]
-        y_df_false = y[false_cond]
+            y_df_true = y[true_cond]
+            y_df_false = y[false_cond]
 
-        true_df_sample = y_df_true.sample(frac=self.training_phase1_percenatge , replace=False).index
-        false_df_sample = y_df_false.sample(frac=self.training_phase1_percenatge, replace=False).index
+            true_df_sample = y_df_true.sample(frac=self.training_phase1_percenatge , replace=False).index
+            false_df_sample = y_df_false.sample(frac=self.training_phase1_percenatge, replace=False).index
 
-        ph1_x_true = x_df_true[x_df_true.index.isin(true_df_sample.values)]
-        ph1_x_false = x_df_false[x_df_false.index.isin(false_df_sample.values)]
+            ph1_x_true = x_df_true[x_df_true.index.isin(true_df_sample.values)]
+            ph1_x_false = x_df_false[x_df_false.index.isin(false_df_sample.values)]
 
-        ph1_y_true = y_df_true[y_df_true.index.isin(true_df_sample.values)]
-        ph1_y_false = y_df_false[y_df_false.index.isin(false_df_sample.values)]
+            ph1_y_true = y_df_true[y_df_true.index.isin(true_df_sample.values)]
+            ph1_y_false = y_df_false[y_df_false.index.isin(false_df_sample.values)]
 
-        ph2_x_true = x_df_true[~x_df_true.index.isin(true_df_sample.values)]
-        ph2_x_false = x_df_false[~y_df_false.index.isin(false_df_sample.values)]
+            ph2_x_true = x_df_true[~x_df_true.index.isin(true_df_sample.values)]
+            ph2_x_false = x_df_false[~y_df_false.index.isin(false_df_sample.values)]
 
-        ph2_y_true = y_df_true[~y_df_true.index.isin(true_df_sample.values)]
-        ph2_y_false = y_df_false[~y_df_false.index.isin(false_df_sample.values)]
+            ph2_y_true = y_df_true[~y_df_true.index.isin(true_df_sample.values)]
+            ph2_y_false = y_df_false[~y_df_false.index.isin(false_df_sample.values)]
 
-        return (pd.concat([ph1_x_true, ph1_x_false]), pd.concat([ph1_y_true, ph1_y_false])),\
-               (pd.concat([ph2_x_true, ph2_x_false]), pd.concat([ph2_y_true, ph2_y_false]))
+            return (pd.concat([ph1_x_true, ph1_x_false]), pd.concat([ph1_y_true, ph1_y_false])),\
+                   (pd.concat([ph2_x_true, ph2_x_false]), pd.concat([ph2_y_true, ph2_y_false]))
 
 
 
@@ -111,13 +114,13 @@ class HyGRAR:
         LOGGER.debug('\nselected non faulty grars %s\n', print_grars(sorted_non_faulty_grar))
         predictions = []
         for _, row in dataset.iterrows():
-            LOGGER.debug('\n\n data row %s', str(row.values))
+            LOGGER.debug('\n\n data row %s ', str(row.values))
             LOGGER.debug('---apply faulty grars---')
             faulty_dist = _calculate_diff(row, sorted_faulty_grar)
             LOGGER.debug('---apply non faulty grars---')
             nonfaulty_dist = _calculate_diff(row, sorted_non_faulty_grar)
             faulty = True if faulty_dist < nonfaulty_dist else False
-            r_obj = matrix.create_prediction_obj( row_data = row.values, true_class = row[self.class_col], prediction=faulty )
+            r_obj = matrix.create_prediction_obj( row_data = row.values,row_data_columns= dataset.columns.values, true_class = row[self.class_col], prediction=faulty )
             predictions.append(r_obj)
             if faulty != row[self.class_col]:
                 LOGGER.debug('wrong prediction')

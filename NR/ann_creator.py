@@ -45,38 +45,14 @@ def create_ANN_models( model_path, use_case, dataset, features_col_names, class_
             y = ohenc.encode(balanced_set[class_col_name].tolist())
 
             mlp = _get_nn_model(x, y, model_path, [f1, f2], perceptron_model_name, MLP, nn_model_strategy, visualise= True, **perceptron_init_param )
-            models.append(mlp)
-            try:
-                rfbn = _get_nn_model(x, y, model_path, [f1, f2], rbf_model_name, RFBN, nn_model_strategy, visualise= True, **rfbn_init_param )
+            if mlp.is_avg_matrix_gt(0.65, 'val_recall') and mlp.is_avg_matrix_gt(0.65, 'recall'):
+                models.append(mlp)
+
+            rfbn = _get_nn_model(x, y, model_path, [f1, f2], rbf_model_name, RFBN, nn_model_strategy, visualise= True, **rfbn_init_param )
+            if rfbn.is_avg_matrix_gt(0.65, 'val_recall') and rfbn.is_avg_matrix_gt(0.65, 'recall'):
                 models.append(rfbn)
-            except Exception as e:
-                LOGGER.error('failed to create model %s', rbf_model_name)
 
         counter+=1
-    return models
-
-def create_ANN_models2(models_path, run_id, datasets, features_col_names, class_col_name, nn_model_strategy='retrain', perceptron_init_param = None, rfbn_init_param = None):
-    models = []
-    ohenc = OneHotEncoder([False, True])
-    counter = 1
-    for dataset in datasets:
-        balanced_sets = util.create_balanced_buckets(dataset,class_col_name)
-        perceptron_template = 'perceptron_{}_{}'
-        rfbn_template = 'rfbn_{}_{}'
-        for balanced_set in balanced_sets:
-            perceptron_model_name = perceptron_template.format(run_id, counter)
-            rbf_model_name = rfbn_template.format(run_id, counter)
-
-            x = np.asarray(balanced_set[features_col_names])
-            y = ohenc.encode(balanced_set[class_col_name].tolist())
-
-            mlp = _get_nn_model(x, y, perceptron_model_name, MLP, nn_model_strategy, visualise= True, **perceptron_init_param )
-            models.append(mlp)
-
-            #rfbn = _get_nn_model(x, y, rbf_model_name, RFBN, nn_model_strategy, visualise= True, **rfbn_init_param )
-            #models.append(rfbn)
-
-            counter+=1
     return models
 
 

@@ -8,6 +8,7 @@ import utils.filesystem as fs
 from tensorflow.keras.regularizers import l2 , l1_l2
 from tensorflow.keras.layers import BatchNormalization
 
+
 class MLP(Basic_NN):
 
     def _build_model( self,x,y):
@@ -19,15 +20,20 @@ class MLP(Basic_NN):
         input_shape = params.get('input_shape', (2,))
         loss_str = params.get('loss', 'binary_crossentropy')
         loss = tf.keras.losses.get(loss_str)
+        hidden_layer_nodes = params.get('hidden_neurons', 2)
 
         #dense_initializer = tf.keras.initializers.RandomNormal(mean=0, stddev=1)
         dense_initializer = tf.keras.initializers.RandomUniform(0.0, 1.0)
 
         normalization_layer = get_normalizer_layer(input_shape, x)
         model = Sequential([
-            #tf.keras.layers.Input(shape=input_shape),
+            tf.keras.layers.Input(shape=input_shape),
             normalization_layer,
-            tf.keras.layers.Dense(2, activation=activations.sigmoid, kernel_initializer=dense_initializer, kernel_regularizer='l2' , bias_regularizer='l2' ),
+            tf.keras.layers.Dense(hidden_layer_nodes, activation=activations.sigmoid, kernel_initializer=dense_initializer
+                                  ),
+            tf.keras.layers.Dense(hidden_layer_nodes, activation=activations.sigmoid,
+                                  kernel_initializer=dense_initializer, kernel_regularizer='l2', bias_regularizer='l2'),
+
             tf.keras.layers.Dense(2, activation=activations.softmax, kernel_initializer=dense_initializer)
         ])
         opt= optimizers.RMSprop(learning_rate=lr, momentum=momentum,decay=decay)

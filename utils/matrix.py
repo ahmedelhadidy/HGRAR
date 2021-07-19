@@ -1,7 +1,9 @@
 
 from collections import defaultdict
+import numpy as np
 
 PREDICT_OBJ_ROW_DATA='row_data'
+PREDICT_OBJ_ROW_DATA_COLS='row_data_columns'
 PREDICT_OBJ_CLASS='true_class'
 PREDICT_OBJ_PREDICTION='prediction'
 PREDICT_OBJ_PREDICTION_RESULT='prediction_result'
@@ -31,10 +33,27 @@ def create_prediction_obj(**kwargs):
     """
     obj = {}
     obj[PREDICT_OBJ_ROW_DATA] = kwargs[PREDICT_OBJ_ROW_DATA]
+    obj[PREDICT_OBJ_ROW_DATA_COLS] = kwargs[PREDICT_OBJ_ROW_DATA_COLS]
     obj[PREDICT_OBJ_CLASS] = kwargs[PREDICT_OBJ_CLASS]
     obj[PREDICT_OBJ_PREDICTION] = kwargs[PREDICT_OBJ_PREDICTION]
     obj[PREDICT_OBJ_PREDICTION_RESULT] = kwargs[PREDICT_OBJ_PREDICTION] == kwargs[PREDICT_OBJ_CLASS]
     return obj
+
+def get_prediction_data(predictions,  *data_col, correct_prediction = True ):
+    filter_obj = filter(lambda x:x[PREDICT_OBJ_PREDICTION_RESULT] == correct_prediction, predictions)
+    filtered_predictions = list(filter_obj)
+    data_array= np.zeros(shape=( len(filtered_predictions), len(data_col) ))
+    class_array = np.empty(shape=(len(filtered_predictions),) , dtype=bool)
+    for index, pred in enumerate(filtered_predictions):
+        all_columns = pred.get(PREDICT_OBJ_ROW_DATA_COLS)
+        all_values = pred.get(PREDICT_OBJ_ROW_DATA)
+        y= pred.get(PREDICT_OBJ_CLASS)
+        req_col_indexes = np.asarray(list([index for index,val in enumerate(all_columns) if val in data_col ]))
+        data_array[index] = all_values[req_col_indexes]
+        class_array[index] = y
+
+    return data_array, class_array
+
 
 
 class Matrix:

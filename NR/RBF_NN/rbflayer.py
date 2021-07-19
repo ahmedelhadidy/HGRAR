@@ -48,17 +48,10 @@ class RBFLayer(Layer):
         super(RBFLayer, self).build(input_shape)
 
     def call(self, x):
-
         C = K.expand_dims(self.centers)
         H = K.transpose(C-K.transpose(x))
         return K.exp(-self.betas * K.sum(H**2, axis=1))
 
-        # C = self.centers[np.newaxis, :, :]
-        # X = x[:, np.newaxis, :]
-
-        # diffnorm = K.sum((C-X)**2, axis=-1)
-        # ret = K.exp( - self.betas * diffnorm)
-        # return ret
 
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.output_dim)

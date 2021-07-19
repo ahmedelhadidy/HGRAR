@@ -4,6 +4,10 @@ from NR.nural_network import Basic_NN
 import model.grar.exceptions as exception
 from NR.perceptron_keras import MLP
 from NR.RFBN import RFBN
+import math
+import logging
+
+LOGGER = logging.getLogger(__name__)
 
 class AnnOperator(Operator):
 
@@ -19,6 +23,9 @@ class AnnOperator(Operator):
             member_ship = prediction[True]
         else:
             member_ship = prediction[False]
+        if math.isnan(member_ship):
+            LOGGER.warning('model %s predictions of values %s is %s', self.model.identifier, values ,prediction)
+            return 0
         return member_ship
 
     # def revers(self):

@@ -67,9 +67,9 @@ def create_balanced_buckets(dataset: pd.DataFrame, class_column_name):
         sub = other_class_rows[slice_from_index : slice_from_index + rare_class_rows_length]
         slice_from_index += rare_class_rows_length
         if len(sub) < rare_class_rows_length:
-            random_other_class_rows = _random_rows(buckets,rare_class_val,class_column_name, rare_class_rows_length - len(sub))
+            random_other_class_rows = _random_rows(buckets,class_column_name, not rare_class_val, rare_class_rows_length - len(sub))
             if random_other_class_rows is not None:
-                buckets.append(pd.concat([sub, class_rows, random_other_class_rows], ignore_index = True))
+                buckets.append(pd.concat([sub, random_other_class_rows, class_rows ], ignore_index = True))
             else:
                 buckets.append(pd.concat([sub, class_rows], ignore_index=True))
         else:
@@ -78,13 +78,13 @@ def create_balanced_buckets(dataset: pd.DataFrame, class_column_name):
     return buckets
 
 
-def _random_rows(datasets:[], rare_class_value ,class_column_name , count: int):
+def _random_rows(datasets:[], from_column_name ,from_column_value , count: int):
     '''
     Get Random rows from DataFrames datasets denoted by count
     rows taken from datasets equally and the remaining count taken one from each dataset
     :param datasets: DataFrames to get random rows from them
-    :param rare_class_value: rare class value
-    :param class_column_name: the class column name
+    :param from_column_name: get row based on column name
+    :param from_column_value: get rows based on column value
     :param count: count of desigred random rows
     :return: sub DataFrame with rows count equal to count parameter or None if ValueError exception raised
     '''
@@ -92,18 +92,28 @@ def _random_rows(datasets:[], rare_class_value ,class_column_name , count: int):
         return None
     return_dataset = None
     to_count = 0
+    count_from_each_ds = int(count/len(datasets))
+    remaining = count % len(datasets)
     try:
-        while True:
-            for ds in datasets:
-                to_count+=1
-                if return_dataset is not None:
-                    return_dataset = return_dataset.append(ds[ds[class_column_name] != rare_class_value].sample(n=1), ignore_index = True)
-                else:
-                    return_dataset = ds[ds[class_column_name] != rare_class_value].sample(n=1)
+        for ds in datasets:
+            if return_dataset is not None:
+                return_dataset = return_dataset.append(ds[ds[from_column_name] == from_column_value].sample(n=count_from_each_ds, replace=False),
+                                                       ignore_index=True)
+            else:
+                return_dataset = ds[ds[from_column_name] == from_column_value].sample(n=count_from_each_ds, replace=False)
+        if remaining > 0:
+            while True:
+                for ds in datasets:
+                    to_count+=1
+                    if return_dataset is not None:
+                        return_dataset = return_dataset.append(ds[ds[from_column_name] == from_column_value].sample(n=1), ignore_index = True)
+                    else:
+                        return_dataset = ds[ds[from_column_name] == from_column_value].sample(n=1)
+                    if to_count == remaining:
+                        return return_dataset
                 if to_count == count:
                     return return_dataset
-            if to_count == count:
-                return return_dataset
+        return return_dataset
     except ValueError:
         print(sys.exc_info())
         return None

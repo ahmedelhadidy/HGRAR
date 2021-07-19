@@ -1,4 +1,4 @@
-from utils.matrix import Matrix
+from utils.matrix import Matrix, get_prediction_data
 from sklearn.model_selection import LeaveOneOut
 from datetime import datetime
 from utils import datapartitional as util
@@ -9,10 +9,14 @@ import csv
 from utils import filesystem as fs
 import logging.config
 import logging
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn
 
 
 logging.config.fileConfig('logging.conf', disable_existing_loggers=False)
 LOGGER = logging.getLogger(__name__)
+logging.disable(logging.NOTSET)
 timer.ALLOW_LOGGING=False
 timer.ALLOW_LOGGING=False
 
@@ -156,21 +160,22 @@ def one_time_test(run_id, usecase_id):
 
     all_data_sets, features, class_col, result_prefix, transformer = usecase_data(usecase_id)
     HyGRAR.PERCEPTRON_INIT_PARAM = {
+        'hidden_neurons': 4,
         'learning_rate': 0.1,
         'input_shape': (2,),
         'batch_size': 10,
         'epochs': 5000,
-        'loss':  'mean_squared_error',
+        'loss':  'mean_absolute_error',
         'early_stop_patience_ratio': 200,
-        'early_stop_monitor_metric': 'loss',
+        'early_stop_monitor_metric': 'val_loss',
         'early_stop_min_delta': 10**-3,
         'decay': 0.1,
         'momentum': 0.1
     }
 
     HyGRAR.PFBN_INIT_PARAM = {
-        'centers': 2,
-        'alfa': 0.3,
+        'centers': 4,
+        'alfa': 0.5,
         'p': 1,
         'learning_rate': 0.1,
         'decay': 0.1,
@@ -178,9 +183,10 @@ def one_time_test(run_id, usecase_id):
         'input_shape': (2,),
         'batch_size': 10,
         'epochs': 5000,
-        'loss': 'mean_squared_error',
+        #'loss': 'mean_squared_error',
+        'loss': 'mean_absolute_error',
         'early_stop_patience_ratio': 200,
-        'early_stop_monitor_metric': 'loss',
+        'early_stop_monitor_metric': 'val_loss',
         'early_stop_min_delta': 10**-3
     }
 
@@ -192,7 +198,7 @@ def one_time_test(run_id, usecase_id):
 
     results=[]
     for test, train_list in permutations(*all_data_sets):
-        LOGGER.info('use case : %s ', test)
+        LOGGER.info('use case : %s , train on : %s', test, train_list)
         data_set = util.concat_datasets_files(train_list,base_dire='test_data')
         if transformer:
             data_set = transformer(data_set)
@@ -202,7 +208,7 @@ def one_time_test(run_id, usecase_id):
             test_data_set = transformer(test_data_set)
 
         hgrar = HyGRAR(run_id,test, hgrar_attributes['min_s'], hgrar_attributes['min_c'], hgrar_attributes['min_membership'] ,
-                       nn_model_creation='retrain', rule_max_length=2, d1_percentage=0.6)
+                       nn_model_creation='retrain', rule_max_length=2, d1_percentage=0)
         hgrar.train(data_set[features],data_set[[class_col]])
         hgrar.save_grars()
         predictions  = hgrar.predict(test_data_set,3)
@@ -214,19 +220,46 @@ def one_time_test(run_id, usecase_id):
 
 
 def test_saved_hgrar(run_id, usecase, grar_count):
-
     ds = util.concat_datasets_files([usecase], base_dire='test_data')
     hgrar = HyGRAR.load_hgrar(run_id,usecase, grar_count)
     predictions = hgrar.predict(ds, grar_count)
     matrix = Matrix()
     matrix.update_matrix_bulk(predictions)
     print_matrix(matrix, "prediction on " + 'ar1')
+    corr, corr_y = get_prediction_data(predictions, 'unique_operators', 'halstead_vocabulary')
+    incorr, incorr_y = get_prediction_data(predictions, 'unique_operators', 'halstead_vocabulary', correct_prediction=False)
+    visualize(corr, corr_y, incorr, incorr_y)
+
+def visualize(corr, corr_y, incorr, incorr_y):
+    jitter = .3
+    f = plt.figure(1, figsize=(15,8))
+    color_palette={'not correct': 'red', 'correct':'green'}
+    markers={True:'X', False:'o'}
+    corr_pred = np.full(fill_value='correct', shape=(len(corr),))
+    incorr_pred = np.full(fill_value='not correct', shape=(len(incorr),))
+    pred = np.concatenate((corr_pred, incorr_pred))
+    data = np.concatenate((corr, incorr))
+    y = np.concatenate((corr_y, incorr_y))
+
+    ytrue = np.where(y)
+    data[ytrue,:] = data[ytrue,:] - np.full(fill_value=0.2, shape=(2,), dtype=float)
+
+    seaborn.scatterplot(x=data[:, 0], y=data[:, 1], hue=pred, palette=color_palette,
+                        style=y, markers=markers,
+                         x_jitter=-jitter, y_jitter=-jitter)
+
+    #seaborn.scatterplot(x=incorr[:, 0], y=incorr[:, 1], hue=np.full(fill_value='not correct', shape=(len(incorr),)),
+    #                    palette=color_palette,
+    #                    style=np.array(list(['defected' if i else 'not defected' for i in incorr_y])),
+    #                    style_order=style_order, x_jitter=jitter, y_jitter=jitter)
+    plt.show()
+
+
 
 
 def usecase_data(id):
     if id == 1:
         all_data_sets = ['ar1.csv', 'ar3.csv', 'ar4.csv', 'ar5.csv', 'ar6.csv']
-        #
         features = ['unique_operators', 'halstead_vocabulary', 'unique_operands']
         class_col = 'defects'
         return  all_data_sets, features, class_col, 'AR', None
@@ -243,5 +276,6 @@ def usecase_data(id):
 
 
 if __name__ == '__main__':
-    one_time_test('133', 2)
-    #test_saved_hgrar('130', 'ar3.csv', 10)
+    one_time_test('169', 1)
+    #one_time_test('141', 2)
+    #test_saved_hgrar('168', 'ar1.csv', 3)

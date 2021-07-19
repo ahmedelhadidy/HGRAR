@@ -179,8 +179,13 @@ class Basic_NN:
     def good_to_use( self, accuracy_limit ):
         return True
 
-    def get_avg_accuracy( self ):
-        pass
+    def is_avg_matrix_gt( self, value, *metrics ):
+        arr = np.empty(shape=(0,))
+        for mtrx in metrics:
+            mtv = self.train_history.get(mtrx)
+            arr = np.concatenate((arr, mtv))
+        avg = np.average(arr)
+        return avg > value
 
 def get_normalizer_layer(input_shape, x):
     normalizer = Normalization(input_shape=input_shape)
