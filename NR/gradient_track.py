@@ -1,5 +1,6 @@
 from  tensorflow.keras.callbacks import TensorBoard
 import tensorflow as tf
+from tensorflow.python.keras.engine.keras_tensor import KerasTensor
 
 
 class GradCallback(TensorBoard):
@@ -27,7 +28,6 @@ class GradCallback(TensorBoard):
             for weights, grads in zip(self.model.trainable_weights, gradients):
                 tf.summary.histogram(
                     weights.name.replace(':', '_') + '_grads', data=grads, step=step)
-
         writer.flush()
 
     def on_epoch_end( self, epoch, logs=None ):
@@ -38,3 +38,7 @@ class GradCallback(TensorBoard):
         # super(ExtendedTensorBoard, self).on_train_batch_end(batch, logs=logs)
         if self.histogram_freq and epoch % self.histogram_freq == 0:
             self._log_gradients(epoch)
+        #self.print_layer(epoch,logs)
+
+
+

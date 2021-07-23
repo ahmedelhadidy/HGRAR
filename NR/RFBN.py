@@ -37,6 +37,7 @@ class RFBN(Basic_NN):
 
         model = Sequential([
             normalization_layer,
+            Dense(input_shape[0], activation=activations.sigmoid),
             RBFLayer(centers, betas= alpha,name=self.RBF_LAYER_NAME, initializer=rbf_init, kernel_regularization='l2'),
             Dense(2,  activation=activations.softmax)
         ])

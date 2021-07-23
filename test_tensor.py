@@ -384,22 +384,9 @@ if __name__ == '__main__':
     #test_model('149', 'ar1.csv', MLP, model_name, obj)
     #test_saved_hgrar()
     #test_rbf_model()
-    test_array=np.array(
-        [
-            [1,2],
-            [4,5],
-            [9,10],
-            [11,12],
-            [22,33]
-        ],
-        dtype=float
-    )
+    arr_one = np.ones(shape=(10,))
+    arr_5 = np.full(fill_value=0.5, shape=(10,))
+    arr_3 = np.full(fill_value=0.3, shape=(10,))
 
-    test_y = np.array([True,False,True,True,False])
-    indecies = np.where(test_y)
-
-    test_subt= np.full(fill_value=0.1, shape=(2,), dtype=float)
-    print(test_subt)
-    test_array[indecies,:] = test_array[indecies,:] - test_subt
-
-    print(test_array)
+    arr_one = np.where(arr_5<arr_one, arr_5,arr_one)
+    print(arr_one)

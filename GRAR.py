@@ -71,7 +71,7 @@ def __scan_get_interesting_rules(candidate_rules,dataset, min_s, min_c, min_memb
     interesting_rules = []
     for rule in candidate_rules:
         total_checked_rules += 1
-        s,c, m = __calculate_support_confidence_membership(rule, dataset, min_membership)
+        s,c, m = __calculate_support_confidence_membership_bulk(rule, dataset, min_membership)
         if s >= min_s and c >= min_c:
             interesting_rules.append((rule,m))
             LOGGER.debug('tested grule %s with support  %f confidence %f membership %f' % (str(rule), s, c, m))
@@ -91,6 +91,26 @@ def __calculate_support_confidence_membership(rule:GRule, dataset, min_membershi
             if membership_degree >= min_membership:
                 c_counter+=1
                 m_c += membership_degree
+    s_avg = s_counter/n
+    c_avg = c_counter/n
+    m_avg = m_c/n
+    #print('grule %s support  %f confidence %f membership %f' % (str(rule), s_avg, c_avg, m_avg))
+    return s_avg, c_avg, m_avg
+
+
+def __calculate_support_confidence_membership_bulk(rule:GRule, dataset, min_membership):
+    s_counter =0
+    c_counter=0
+    m_c=0
+    n = dataset.shape[0]
+    for index,row in dataset.iterrows():
+        if __all_rule_items_present(row, rule.get_all_items()):
+            s_counter+=1
+    membership_degrees = rule.calculate_membership_degree_bulk(dataset)
+    for member_ship in membership_degrees:
+        if member_ship >= min_membership:
+            c_counter+=1
+            m_c += member_ship
     s_avg = s_counter/n
     c_avg = c_counter/n
     m_avg = m_c/n

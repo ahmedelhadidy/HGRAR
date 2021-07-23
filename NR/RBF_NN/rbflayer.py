@@ -1,7 +1,7 @@
 from keras import backend as K
 from keras.engine.topology import Layer
 from keras.initializers import RandomUniform, Initializer, Constant
-import numpy as np
+import tensorflow as tf
 
 
 class RBFLayer(Layer):
@@ -50,7 +50,11 @@ class RBFLayer(Layer):
     def call(self, x):
         C = K.expand_dims(self.centers)
         H = K.transpose(C-K.transpose(x))
-        return K.exp(-self.betas * K.sum(H**2, axis=1))
+        power = -self.betas * K.sum(H**2, axis=1)
+        r = K.exp(power)
+        #tf.print('input:',x,'x_T:',K.transpose(x),'centers:',self.centers,'c_expan:',C,'minus:',H,'beta:',self.betas,
+        #         'power:',power,'output:',r,sep='\n', summarize=-1)
+        return r
 
 
     def compute_output_shape(self, input_shape):

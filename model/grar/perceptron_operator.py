@@ -6,6 +6,7 @@ from NR.perceptron_keras import MLP
 from NR.RFBN import RFBN
 import math
 import logging
+import numpy as np
 
 LOGGER = logging.getLogger(__name__)
 
@@ -18,15 +19,18 @@ class AnnOperator(Operator):
         self.model = model
 
     def apply(self, *values):
-        prediction = self.model.predict_with_membership_degree(*values)[0]
-        if self.operator_type == OperatorType.FAULTY:
-            member_ship = prediction[True]
-        else:
-            member_ship = prediction[False]
-        if math.isnan(member_ship):
-            LOGGER.warning('model %s predictions of values %s is %s', self.model.identifier, values ,prediction)
-            return 0
-        return member_ship
+        predictions = self.model.predict_with_membership_degree(*values)
+        member_ships = np.zeros(shape=(len(predictions),))
+        for index, prediction in enumerate(predictions):
+            if self.operator_type == OperatorType.FAULTY:
+                member_ship = prediction[True]
+            else:
+                member_ship = prediction[False]
+            if math.isnan(member_ship):
+                LOGGER.warning('model %s predictions of values %s is %s', self.model.identifier, values ,prediction)
+                member_ship = 0
+            member_ships[index] = member_ship
+        return member_ships
 
     # def revers(self):
     #     if self.operator_type == OperatorType.FAULTY:

@@ -181,7 +181,7 @@ def one_time_test(run_id, usecase_id):
         'decay': 0.1,
         'momentum': 0.1,
         'input_shape': (2,),
-        'batch_size': 10,
+        'batch_size': 20,
         'epochs': 5000,
         #'loss': 'mean_squared_error',
         'loss': 'mean_absolute_error',
@@ -208,7 +208,7 @@ def one_time_test(run_id, usecase_id):
             test_data_set = transformer(test_data_set)
 
         hgrar = HyGRAR(run_id,test, hgrar_attributes['min_s'], hgrar_attributes['min_c'], hgrar_attributes['min_membership'] ,
-                       nn_model_creation='retrain', rule_max_length=2, d1_percentage=0)
+                       nn_model_creation='reuse', rule_max_length=3, d1_percentage=0)
         hgrar.train(data_set[features],data_set[[class_col]])
         hgrar.save_grars()
         predictions  = hgrar.predict(test_data_set,3)
@@ -276,6 +276,6 @@ def usecase_data(id):
 
 
 if __name__ == '__main__':
-    one_time_test('169', 1)
+    one_time_test('171', 2)
     #one_time_test('141', 2)
     #test_saved_hgrar('168', 'ar1.csv', 3)

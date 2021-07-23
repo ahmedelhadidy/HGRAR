@@ -8,6 +8,7 @@ from utils import matrix, filesystem
 from utils.timer import Timer
 import logging
 import json
+import numpy as np
 
 LOGGER = logging.getLogger(__name__)
 HYGRAR_PERSISTENCE= filesystem.get_relative_to_home('hygrar')
@@ -105,7 +106,7 @@ class HyGRAR:
 
 
     @Timer(text="hgrar predict executed in {:.2f} seconds")
-    def predict(self, dataset :pd.DataFrame, grar_count):
+    def predict(self, dataset :pd.DataFrame, grar_count, bulk=False):
         faulty_grar_count = grar_count if len(self.interesting_grar_faulty) >= grar_count else len(self.interesting_grar_faulty)
         non_faulty_grar_count = grar_count if len(self.interesting_grar_not_faulty) >= grar_count else len(self.interesting_grar_not_faulty)
         sorted_faulty_grar = sorted(self.interesting_grar_faulty, key=lambda gr: gr[1], reverse=True)[0:faulty_grar_count]
@@ -192,6 +193,18 @@ def _calculate_diff(data_row, grar: []):
         mr = r.calculate_membership_degree(data_row)
         total_rules_diff += abs(m - mr)
         LOGGER.debug('grar (%s , %f) membership for data is %f'% (str(r),m, mr))
+    avg_diff = total_rules_diff / n
+    LOGGER.debug('final grars diff is %f'% avg_diff)
+    return avg_diff
+
+def _calculate_diff_bulk(dataset, grar:[]):
+    total_rules_diff=0
+    n = len(grar)
+    for r, m in grar:
+        m_arr = np.full(fill_value=m, shape=(len(dataset),))
+        mr = r.calculate_membership_degree_bulk(dataset)
+        total_rules_diff += np.sum(abs(m_arr - mr))
+    #LOGGER.debug('grar (%s , %f) membership for data is %f'% (str(r),m, mr))
     avg_diff = total_rules_diff / n
     LOGGER.debug('final grars diff is %f'% avg_diff)
     return avg_diff

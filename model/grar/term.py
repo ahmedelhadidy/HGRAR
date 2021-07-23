@@ -16,7 +16,18 @@ class Term:
         value2 = right_hand_side_item.item.value(data_row)
         values_obj[self.item.get_identifier()] = value1
         values_obj[right_hand_side_item.item.get_identifier()] = value2
-        return self.operator.apply(values_obj)
+        return self.operator.apply(values_obj)[0]
+
+    def apply_bulk(self, right_hand_side_item: Item, dataset):
+        objects=[]
+        for index, data_row in dataset.iterrows():
+            values_obj={}
+            value1 = self.item.value(data_row)
+            value2 = right_hand_side_item.item.value(data_row)
+            values_obj[self.item.get_identifier()] = value1
+            values_obj[right_hand_side_item.item.get_identifier()] = value2
+            objects.append(values_obj)
+        return self.operator.apply(*objects)
 
     def get_reversed(self):
         return Term(self.item, self.operator.revers())
