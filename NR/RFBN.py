@@ -1,5 +1,6 @@
 import tensorflow as tf
 from NR.RBF_NN.rbflayer import RBFLayer
+from NR.RBF_NN.rbflayer_02 import RBFLayer as RBFLayer2
 from NR.RBF_NN.kmeans_initializer import InitCentersKMeans, InitCentersKMeans2, InitCentersCMeans
 from NR.RBF_NN.initializer import InitCentersRandom
 from tensorflow.keras.layers import Dense, Input
@@ -29,24 +30,27 @@ class RFBN(Basic_NN):
         centers = params.pop('centers', 2)
         loss_str = params.get('loss', 'binary_crossentropy')
         loss = tf.keras.losses.get(loss_str)
-        normalization_layer = get_normalizer_layer(input_shape,x)
+        normalization_layer = get_normalizer_layer(input_shape,x, mean=0, variance=1)
         rbf_init = self.__get_rbf_initializer(normalization_layer(x).numpy())
-        initializer = tf.keras.initializers.RandomNormal(mean=0, stddev=1.5)
-        dense_initializer = tf.keras.initializers.RandomNormal(mean=0, stddev=1)
+
+        #rbf_init = self.__get_rbf_initializer(x)
+        #initializer = tf.keras.initializers.RandomNormal(mean=0, stddev=1.5)
+        #dense_initializer = tf.keras.initializers.RandomNormal(mean=0, stddev=1)
         opt = self.__get_optimizer()
 
         model = Sequential([
             normalization_layer,
-            Dense(input_shape[0], activation=activations.sigmoid),
-            RBFLayer(centers, betas= alpha,name=self.RBF_LAYER_NAME, initializer=rbf_init, kernel_regularization='l2'),
-            Dense(2,  activation=activations.softmax)
+            RBFLayer(centers, betas= alpha,name=self.RBF_LAYER_NAME, initializer=rbf_init, dtype=tf.dtypes.double),
+            #RBFLayer2(centers, alpha=alpha, p=p,  name=self.RBF_LAYER_NAME, initializer=rbf_init, dtype=tf.dtypes.double),
+            Dense(2,dtype=tf.dtypes.double,  activation=activations.softmax)
         ])
-        model.compile(loss=loss, optimizer=opt,metrics=['accuracy',m.Recall(name='recall'), m.Precision(name='precision')], run_eagerly=False)
+        model.compile(loss=loss, optimizer=opt,  metrics=['accuracy',m.Recall(name='recall'), m.Precision(name='precision')], run_eagerly=False)
+
         model.summary()
         return model
 
     def _train_model( self, x, y, x_val, y_val, model,callbacks=[] ):
-        before = model.get_layer(self.RBF_LAYER_NAME).get_weights()[0]
+        before = model.get_layer(self.RBF_LAYER_NAME).get_weights()
         params = self.model_params
         epochs = params.get('epochs', 2000)
         batch_size = params.get('batch_size',10)
@@ -64,7 +68,7 @@ class RFBN(Basic_NN):
         callbacks.append(terminate_on_nan)
 
         train_history = model.fit(x, y,epochs=epochs,batch_size=batch_size , validation_data =(x_val, y_val) , callbacks=callbacks)
-        after = model.get_layer(self.RBF_LAYER_NAME).get_weights()[0]
+        after = model.get_layer(self.RBF_LAYER_NAME).get_weights()
         print('before training ', before, '\n', 'after training ', after)
         return train_history
 
@@ -82,15 +86,18 @@ class RFBN(Basic_NN):
         lr = params.get('learning_rate', 0.1)
         decay = params.get('decay', 0.1)
         momentum = params.get('momentum', 0.0)
-        return RMSprop(learning_rate=lr, momentum=momentum, decay=decay)
+        #opt = RMSprop(learning_rate=lr, momentum=momentum, decay=decay)
+        #opt = Adam(learning_rate=lr, decay = decay, amsgrad=True)
+        #opt = SGD(learning_rate=lr, momentum=momentum, decay=decay)
+        opt = RMSprop()
+        return opt
 
     def __get_rbf_initializer( self,x ):
         #initializer = InitCentersCMeans(x, max_iter=1000)
         # initializer = __rbf_initializer__(normalization_layer(x).numpy(),y)
-        # initializer =   kmean_initializer(normalization_layer(x).numpy())
-        # initializer = kmean_initializer(x)
+        initializer = kmean_initializer(x)
         # initializer = random_initializer(normalization_layer(x).numpy())
-        initializer = InitCentersRandom(x)
+        #initializer = InitCentersRandom(x)
         return initializer
 
 # def random_initializer( x ):

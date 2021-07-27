@@ -2,7 +2,7 @@ from keras import backend as K
 from keras.engine.topology import Layer
 from keras.initializers import RandomUniform, Initializer, Constant
 import tensorflow as tf
-
+import sys
 
 class RBFLayer(Layer):
     """ Layer of Gaussian RBF units.
@@ -22,10 +22,11 @@ class RBFLayer(Layer):
         betas: float, initial value for betas
     """
 
-    def __init__(self, output_dim, initializer=None, betas=1.0, kernel_regularization=None, **kwargs):
+    def __init__(self, output_dim, initializer=None, betas=1.0, kernel_regularization=None, fixed_centers= True, **kwargs):
         self.kernel_regularization = kernel_regularization
         self.output_dim = output_dim
         self.init_betas = betas
+        self.fixed_centers = fixed_centers
         if not initializer:
             self.initializer = RandomUniform(0.0, 1.0)
         else:
@@ -38,12 +39,22 @@ class RBFLayer(Layer):
                                        shape=(self.output_dim, input_shape[1]),
                                        initializer=self.initializer,
                                        regularizer=self.kernel_regularization,
-                                       trainable=True)
+                                       dtype=tf.dtypes.double,
+                                       trainable=not self.fixed_centers)
         self.betas = self.add_weight(name='betas',
                                      shape=(self.output_dim,),
                                      initializer=Constant(value=self.init_betas),
                                      regularizer=self.kernel_regularization,
-                                     trainable=True)
+                                     dtype=tf.dtypes.double,
+                                     trainable=not self.fixed_centers)
+        if self.fixed_centers:
+            self.training_weights = self.add_weight(name='training_weights',
+                                         shape=(self.output_dim, input_shape[1]),
+                                         initializer=RandomUniform(),
+                                         regularizer=self.kernel_regularization,
+                                         dtype=tf.dtypes.double,
+                                         trainable=True)
+
 
         super(RBFLayer, self).build(input_shape)
 
@@ -51,7 +62,10 @@ class RBFLayer(Layer):
         C = K.expand_dims(self.centers)
         H = K.transpose(C-K.transpose(x))
         power = -self.betas * K.sum(H**2, axis=1)
+        #r = tf.minimum(K.exp(power), sys.float_info.max)
         r = K.exp(power)
+        if self.fixed_centers:
+            r = tf.matmul(r, self.training_weights)
         #tf.print('input:',x,'x_T:',K.transpose(x),'centers:',self.centers,'c_expan:',C,'minus:',H,'beta:',self.betas,
         #         'power:',power,'output:',r,sep='\n', summarize=-1)
         return r

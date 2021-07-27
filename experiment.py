@@ -90,69 +90,6 @@ def create_result_csv(path, results):
         writer = csv.writer(file)
         writer.writerows(rows_list)
 
-@Timer(text="one_time_test2 executed in {:.2f} seconds")
-def one_time_test2():
-    run_id = '15'
-    all_data_sets, features, class_col, input_shape, result_prefix, transformer = usecase_data(1)
-
-    HyGRAR.PERCEPTRON_INIT_PARAM = {
-        'learning_rate': 0.1,
-        'input_shape': input_shape,
-        'batch_size': 10,
-        'epochs': 300,
-        #'loss': 'mean_squared_error',
-        'loss': 'categorical_crossentropy',
-        'early_stop_patience_ratio': 1,
-        'early_stop_monitor_metric': 'val_loss',
-        'decay': 0.1,
-        'momentum': 0.1
-    }
-
-    HyGRAR.PFBN_INIT_PARAM = {
-        'centers': 2,
-        'alfa':0.5,
-        'p':1,
-        'learning_rate':0.1,
-        'decay': 0.1,
-        'input_shape': input_shape,
-        'batch_size': 10,
-        'epochs': 300,
-        #'loss': 'mean_squared_error',
-        'loss': 'categorical_crossentropy',
-        'early_stop_patience_ratio': 1,
-        'early_stop_monitor_metric': 'val_loss'
-    }
-
-    hgrar_attributes = {
-        'min_s': 1,
-        'min_c': 0.5,
-        'min_membership': 0.1
-    }
-
-
-    results=[]
-    for test, train_list in permutations(*all_data_sets):
-        print('use case : ', test)
-        test_data_set = util.concat_datasets_files([test],base_dire='test_data')
-        train_datasets = []
-        for ds in train_list:
-            dataset = util.concat_datasets_files([ds],base_dire='test_data')
-            if transformer:
-                dataset = transformer(dataset)
-            #dataset = dataset[features + [class_col]]
-            train_datasets.append(dataset)
-        if transformer:
-            test_data_set = transformer(test_data_set)
-
-        hgrar = HyGRAR(test, hgrar_attributes['min_s'], hgrar_attributes['min_c'], hgrar_attributes['min_membership'] ,
-                       nn_model_creation='reuse')
-        hgrar.train2(train_datasets, features,class_col)
-        predictions  = hgrar.predict(test_data_set,3)
-        matrix = Matrix()
-        matrix.update_matrix_bulk(predictions)
-        results.append((test, matrix))
-        create_result_csv(fs.get_relative_to_home(result_prefix+'_results_'+run_id+'.csv'), results)
-        print_matrix(matrix, "prediction on "+test)
 
 
 @Timer(text="one_time_test executed in {:.2f} seconds")
@@ -160,13 +97,15 @@ def one_time_test(run_id, usecase_id):
 
     all_data_sets, features, class_col, result_prefix, transformer = usecase_data(usecase_id)
     HyGRAR.PERCEPTRON_INIT_PARAM = {
-        'hidden_neurons': 4,
+        'hidden_neurons': 2,
         'learning_rate': 0.1,
         'input_shape': (2,),
-        'batch_size': 10,
+        'batch_size': 32,
         'epochs': 5000,
-        'loss':  'mean_absolute_error',
-        'early_stop_patience_ratio': 200,
+        'loss': 'mean_squared_error',
+        #'loss':  'mean_absolute_error',
+        #'loss': 'categorical_crossentropy',
+        'early_stop_patience_ratio': 0.1,
         'early_stop_monitor_metric': 'val_loss',
         'early_stop_min_delta': 10**-3,
         'decay': 0.1,
@@ -174,18 +113,19 @@ def one_time_test(run_id, usecase_id):
     }
 
     HyGRAR.PFBN_INIT_PARAM = {
-        'centers': 4,
+        'centers': 2,
         'alfa': 0.5,
         'p': 1,
         'learning_rate': 0.1,
         'decay': 0.1,
         'momentum': 0.1,
         'input_shape': (2,),
-        'batch_size': 20,
+        'batch_size': 32,
         'epochs': 5000,
-        #'loss': 'mean_squared_error',
-        'loss': 'mean_absolute_error',
-        'early_stop_patience_ratio': 200,
+        'loss': 'mean_squared_error',
+        #'loss': 'categorical_crossentropy',
+        #'loss': 'mean_absolute_error',
+        'early_stop_patience_ratio': 0.1,
         'early_stop_monitor_metric': 'val_loss',
         'early_stop_min_delta': 10**-3
     }
@@ -195,6 +135,7 @@ def one_time_test(run_id, usecase_id):
         'min_c': 0.5,
         'min_membership': 0.01
     }
+    use_nn_types = ('ALL')
 
     results=[]
     for test, train_list in permutations(*all_data_sets):
@@ -208,10 +149,10 @@ def one_time_test(run_id, usecase_id):
             test_data_set = transformer(test_data_set)
 
         hgrar = HyGRAR(run_id,test, hgrar_attributes['min_s'], hgrar_attributes['min_c'], hgrar_attributes['min_membership'] ,
-                       nn_model_creation='reuse', rule_max_length=3, d1_percentage=0)
-        hgrar.train(data_set[features],data_set[[class_col]])
+                       nn_model_creation='reuse', rule_max_length=2, d1_percentage=0.0)
+        hgrar.train(data_set[features],data_set[[class_col]], use_nn_types=use_nn_types, balanced_buckets=True, merge_buckets=False)
         hgrar.save_grars()
-        predictions  = hgrar.predict(test_data_set,3)
+        predictions  = hgrar.predict(test_data_set,3, bulk=True)
         matrix = Matrix()
         matrix.update_matrix_bulk(predictions)
         results.append((test, matrix))
@@ -219,16 +160,20 @@ def one_time_test(run_id, usecase_id):
         print_matrix(matrix, "prediction on "+test)
 
 
-def test_saved_hgrar(run_id, usecase, grar_count):
+def test_saved_hgrar(run_id, usecase,usecase_id, grar_count , *visualize_columns ,bulk = True):
+    _, features, class_col, _, transform = usecase_data(usecase_id)
     ds = util.concat_datasets_files([usecase], base_dire='test_data')
+    if transform:
+        ds= transform(ds)
     hgrar = HyGRAR.load_hgrar(run_id,usecase, grar_count)
-    predictions = hgrar.predict(ds, grar_count)
+    predictions = hgrar.predict(ds, grar_count, bulk=bulk)
     matrix = Matrix()
     matrix.update_matrix_bulk(predictions)
-    print_matrix(matrix, "prediction on " + 'ar1')
-    corr, corr_y = get_prediction_data(predictions, 'unique_operators', 'halstead_vocabulary')
-    incorr, incorr_y = get_prediction_data(predictions, 'unique_operators', 'halstead_vocabulary', correct_prediction=False)
-    visualize(corr, corr_y, incorr, incorr_y)
+    print_matrix(matrix, "prediction on " + usecase)
+    if len(visualize_columns) == 2:
+        corr, corr_y = get_prediction_data(predictions, *visualize_columns)
+        incorr, incorr_y = get_prediction_data(predictions, *visualize_columns , correct_prediction=False)
+        visualize(corr, corr_y, incorr, incorr_y)
 
 def visualize(corr, corr_y, incorr, incorr_y):
     jitter = .3
@@ -276,6 +221,8 @@ def usecase_data(id):
 
 
 if __name__ == '__main__':
-    one_time_test('171', 2)
+    one_time_test('221', 1)
+    #one_time_test('200', 2)
     #one_time_test('141', 2)
-    #test_saved_hgrar('168', 'ar1.csv', 3)
+    #test_saved_hgrar('215', 'ar1.csv',1, 3, 'unique_operands', 'halstead_vocabulary',bulk=True)
+    #test_saved_hgrar('218', 'ar1.csv', 1, 3, 'unique_operands', 'halstead_vocabulary', bulk=True)

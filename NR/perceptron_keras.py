@@ -27,20 +27,17 @@ class MLP(Basic_NN):
 
         normalization_layer = get_normalizer_layer(input_shape, x)
         model = Sequential([
-            tf.keras.layers.Input(shape=input_shape),
             normalization_layer,
-            tf.keras.layers.Dense(hidden_layer_nodes, activation=activations.sigmoid, kernel_initializer=dense_initializer
-                                  ),
-            tf.keras.layers.Dense(hidden_layer_nodes, activation=activations.sigmoid,
-                                  kernel_initializer=dense_initializer, kernel_regularizer='l2', bias_regularizer='l2'),
-
-            tf.keras.layers.Dense(2, activation=activations.softmax, kernel_initializer=dense_initializer)
+            tf.keras.layers.Dense(hidden_layer_nodes, activation=activations.sigmoid, kernel_regularizer='l2', bias_regularizer='l2' ),
+            tf.keras.layers.Dense(2, activation=activations.softmax)
         ])
+        #,kernel_initializer=dense_initializer
         opt= optimizers.RMSprop(learning_rate=lr, momentum=momentum,decay=decay)
         #opt = optimizers.SGD(learning_rate=lr, momentum=momentum, decay=decay)
-        #opt = optimizers.Adam(learning_rate=params.get('learning_rate', 0.1), decay=params.get('decay',0.1))
+        #opt= Adam(learning_rate=params.get('learning_rate', 0.1), decay=params.get('decay',0.1), amsgrad=True)
+        #opt = optimizers.SGD(learning_rate=lr, momentum=momentum, decay=decay)
 
-        model.compile(loss=loss,metrics=['accuracy', m.Precision(name='precision'),m.Recall(name='recall')], run_eagerly=False)
+        model.compile(loss=loss,metrics=['accuracy', m.Precision(name='precision'),m.Recall(name='recall')],optimizer=opt, run_eagerly=False)
         model.summary()
         return model
 

@@ -179,16 +179,21 @@ class Basic_NN:
     def good_to_use( self, accuracy_limit ):
         return True
 
-    def is_avg_matrix_gt( self, value, *metrics ):
-        arr = np.empty(shape=(0,))
-        for mtrx in metrics:
-            mtv = self.train_history.get(mtrx)
-            arr = np.concatenate((arr, mtv))
-        avg = np.average(arr)
-        return avg > value
+    def is_metrics_gt( self, *metrics_values, loss='val_loss' ):
 
-def get_normalizer_layer(input_shape, x):
-    normalizer = Normalization(input_shape=input_shape)
+        for mtrx, val in metrics_values:
+            mtv = self.train_history.get(mtrx)
+            min_los_index = np.argmin(self.train_history.get(loss))
+            if not mtv:
+                continue
+            mat_val_best_loss = mtv[min_los_index]
+            if mat_val_best_loss < val:
+                LOGGER.debug('Matric %s : %f , less than required value : %f ', mtrx, mat_val_best_loss, val)
+                return False
+        return True
+
+def get_normalizer_layer(input_shape, x, mean= None, variance= None):
+    normalizer = Normalization(input_shape=input_shape, mean= mean, variance= variance)
     normalizer.adapt(x)
     return normalizer
 

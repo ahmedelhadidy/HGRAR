@@ -11,7 +11,8 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-def create_ANN_models( model_path, use_case, dataset, features_col_names, class_col_name, nn_model_strategy='retrain', perceptron_init_param = None, rfbn_init_param = None ):
+def create_ANN_models( model_path, use_case, dataset, features_col_names, class_col_name,use_nn_types = ('ALL'), nn_model_strategy='retrain', balanced_buckets=True,
+                       merge_buckets = False, perceptron_init_param = None, rfbn_init_param = None ):
     '''
     :run_id: unique run_id used to save model for specific use case
     :param dataset: training dataset
@@ -27,8 +28,12 @@ def create_ANN_models( model_path, use_case, dataset, features_col_names, class_
     '''
     models = []
     ohenc = OneHotEncoder([False, True])
-
-    balanced_sets = util.create_balanced_buckets(dataset,class_col_name)
+    if balanced_buckets:
+        balanced_sets = util.create_balanced_buckets(dataset,class_col_name)
+        if merge_buckets:
+            balanced_sets = [util.concat_datasets(balanced_sets)]
+    else:
+        balanced_sets=[dataset]
     perceptron_template = 'perceptron_{}_{}_{}##{}'
     rfbn_template = 'rfbn_{}_{}_{}##{}'
     counter=1
@@ -43,14 +48,14 @@ def create_ANN_models( model_path, use_case, dataset, features_col_names, class_
 
             x = np.asarray(balanced_set[[f1, f2]])
             y = ohenc.encode(balanced_set[class_col_name].tolist())
-
-            mlp = _get_nn_model(x, y, model_path, [f1, f2], perceptron_model_name, MLP, nn_model_strategy, visualise= True, **perceptron_init_param )
-            if mlp.is_avg_matrix_gt(0.65, 'val_recall') and mlp.is_avg_matrix_gt(0.65, 'recall'):
-                models.append(mlp)
-
-            rfbn = _get_nn_model(x, y, model_path, [f1, f2], rbf_model_name, RFBN, nn_model_strategy, visualise= True, **rfbn_init_param )
-            if rfbn.is_avg_matrix_gt(0.65, 'val_recall') and rfbn.is_avg_matrix_gt(0.65, 'recall'):
-                models.append(rfbn)
+            if 'ALL' in use_nn_types or MLP.__name__ in use_nn_types:
+                mlp = _get_nn_model(x, y, model_path, [f1, f2], perceptron_model_name, MLP, nn_model_strategy, visualise= True, **perceptron_init_param )
+                if mlp.is_metrics_gt(('recall',0.65), ('val_recall',0.6 ), ('precision',0.65 ), ('val_precision', 0.6)) :
+                    models.append(mlp)
+            if 'ALL' in use_nn_types or RFBN.__name__ in use_nn_types:
+                rfbn = _get_nn_model(x, y, model_path, [f1, f2], rbf_model_name, RFBN, nn_model_strategy, visualise= True, **rfbn_init_param )
+                if rfbn.is_metrics_gt(('recall',0.65), ('val_recall',0.6 ), ('precision',0.65 ), ('val_precision', 0.6)):
+                    models.append(rfbn)
 
         counter+=1
     return models
@@ -75,7 +80,7 @@ def _get_nn_model(x,y, run_path, features_names, model_name, model_type, nn_mode
                 model.save(path)
         else:
             fs.delete(path, model_name)
-            model.train_model(x, y)
+            model.train_model(x, y, tensorboard_dir=path)
             model.save(path)
 
     elif nn_model_strategy == 'retrain':

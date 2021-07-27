@@ -20,6 +20,8 @@ from experiment import print_matrix
 import matplotlib.pyplot as plt
 import seaborn
 import numpy as np
+from experiment import usecase_data
+import math
 from utils.one_hot_encoder import OneHotEncoder
 
 from NR.RBF_NN.kmeans_initializer import InitCentersKMeans2
@@ -63,26 +65,25 @@ def test_rbf():
     visualize(centers,x,y,distances)
 
 
-def test_rbf_model():
-    run_id='144'
-    usecase = 'ar1.csv'
-    input_data = dutil.concat_datasets_files([usecase], base_dire='test_data')
-    x = np.asarray(input_data[['unique_operators', 'halstead_vocabulary']])
-    y= np.asarray(input_data[['defects']])
+def test_rbf_model(run_id, usecase_name, usecase_id):
+    _, features, class_col, _, transformer = usecase_data(usecase_id)
+
+    model = RFBN('rfbn_ant-1.7.csv_1_cbo##rfc')
+    base = fm.get_relative_to_home('hygrar')
+    path = fm.join(base, run_id, usecase_name, RFBN_MODELS_PATH)
+    model.load_models(path)
+    rbf_layer = model._model.get_layer(RFBN.RBF_LAYER_NAME)
+
+    input_data = dutil.concat_datasets_files([usecase_name], base_dire='test_data')
+    x = np.asarray(input_data[model.features_names])
+    y = np.asarray(input_data[[class_col]] if not transformer else transformer(input_data)[[class_col]])
     normalizer = Normalization(input_shape=(2,), dtype=float)
     normalizer.adapt(x)
     x = normalizer(x)
     f = np.where(y)[0]
     nf = np.where(y == False)[0]
 
-
-    model = RFBN('rfbn_ar1.csv_2_unique_operators##halstead_vocabulary')
-    base = fm.get_relative_to_home('hygrar')
-    path = fm.join(base,run_id, usecase, RFBN_MODELS_PATH)
-    model.load_models(path)
-    rbf_layer = model._model.get_layer(RFBN.RBF_LAYER_NAME)
-    centers = rbf_layer.get_weights()[0]
-
+    centers = rbf_layer.get_weights()[1]
     distances = rbf_layer(x)
     print(centers)
     visualize(centers,x.numpy(),y,distances.numpy())
@@ -297,31 +298,41 @@ def test_grul_terms_identical():
 
     assert  gRule._is_terms_identical(rule1, rule2)
 
-def get_normalizer(shape):
-    datasources_conc = dutil.concat_datasets_files(['ar3.csv', 'ar4.csv', 'ar5.csv', 'ar6.csv'], base_dire='test_data')
-    datasources_conc = datasources_conc[['unique_operators', 'halstead_vocabulary', 'unique_operands']]
+def get_normalizer(ds_names, columns, mean=None, variance=None):
+    datasources_conc = dutil.concat_datasets_files(ds_names, base_dire='test_data')
+    datasources_conc = datasources_conc[columns]
     datasources_conc_arr = np.asarray(datasources_conc)
-    normalizer = Normalization(input_shape=shape, mean=0, variance=1)
+    normalizer = Normalization(input_shape=(len(columns),), mean=mean, variance=variance)
     normalizer.adapt(datasources_conc_arr)
     return normalizer
 
-def test_normalization():
-    datasources = ['ar1.csv','ar3.csv','ar4.csv','ar5.csv','ar6.csv']
+def test_normalization(ds_names, columns, file_name, mean=None, variance=None):
     rows_list = []
-    rows_list.append(['unique_operators', 'halstead_vocabulary', 'unique_operands', 'unique_operators_normalized',
-                      'halstead_vocabulary_normalized', 'unique_operands_normalized', 'data_set'])
-    for ds_name in datasources:
+    headers=[]
+    headers.extend(columns)
+    for col in columns:
+        headers.append(col+'_normalized')
+    headers.append('data_set')
+    rows_list.append(headers)
+
+    for ds_name in ds_names:
         ds = dutil.concat_datasets_files([ds_name], base_dire='test_data')
-        ds = ds[['unique_operators', 'halstead_vocabulary', 'unique_operands']]
+        ds = ds[columns]
         ds_arr = np.asarray(ds)
         len = ds_arr.shape[0]
-        input_shape = (3,)
-        ds_arr_norm = get_normalizer(input_shape)(ds_arr)
+        ds_arr_norm = get_normalizer([ds_name], columns, mean=mean, variance=variance)(ds_arr)
         for i in range(len):
             rows_list.append(np.concatenate((ds_arr[i],ds_arr_norm[i],np.array([ds_name]))))
-    with open(fm.get_relative_to_home('normalization_result_mean_0.csv'), 'w', newline='') as file:
+    with open(fm.get_relative_to_home(file_name+'.csv'), 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(rows_list)
+
+def test_normalization_main():
+    #datasources = ['ar1.csv', 'ar3.csv', 'ar4.csv', 'ar5.csv', 'ar6.csv']
+    #columns = ['unique_operators', 'halstead_vocabulary', 'unique_operands']
+    datasources = ['ant-1.7.csv', 'jedit-3.2.csv', 'jedit-4.0.csv', 'jedit-4.1.csv', 'jedit-4.2.csv', 'jedit-4.3.csv']
+    columns = ['wmc', 'cbo', 'rfc']
+    test_normalization(datasources, columns, 'normalized_ds_3',mean=0, variance= 2)
 
 def test_euclidean_distance1():
     a = tf.constant(np.array([[1,2], [3.3, 4.4]]))
@@ -384,9 +395,5 @@ if __name__ == '__main__':
     #test_model('149', 'ar1.csv', MLP, model_name, obj)
     #test_saved_hgrar()
     #test_rbf_model()
-    arr_one = np.ones(shape=(10,))
-    arr_5 = np.full(fill_value=0.5, shape=(10,))
-    arr_3 = np.full(fill_value=0.3, shape=(10,))
-
-    arr_one = np.where(arr_5<arr_one, arr_5,arr_one)
-    print(arr_one)
+    #test_normalization_main()
+    test_rbf_model('177','ant-1.7.csv',2)
