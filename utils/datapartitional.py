@@ -3,7 +3,7 @@ from pandas import DataFrame
 import pandas as pd
 import operator
 import sys as sys
-
+from itertools import chain
 
 def partition(dataset: DataFrame, partitions_count, class_extractor):
     '''
@@ -134,10 +134,10 @@ def create_uniqe_classes_subsets(dataset: pd.DataFrame, class_column_name):
     return _return
 
 
-def concat_datasets(datasets: []):
-    if not is_same_datasets(datasets):
+def concat_datasets(datasets: [], axis=0):
+    if not is_same_datasets(datasets) and axis == 0:
         raise Exception('datasets are not identical, can''t merge them')
-    return pd.concat(datasets)
+    return pd.concat(datasets, axis=axis)
 
 
 def concat_datasets_files(datasets_files: [], base_dire=None):
@@ -159,6 +159,29 @@ def is_same_datasets(datasets:[]):
     if len(data) > 1:
         return False
     return True
+
+
+def get_new_combinations(old_values:[], new_values:[], output_join_length):
+    assert output_join_length  > 1
+    old_values_participants = output_join_length-1
+    i1 = range(len(old_values) + len(new_values))
+    i2 = range(len(old_values), len(old_values) + len(new_values))
+    all_values = old_values + new_values
+    for itr1 in i1:
+        for itr2 in i2:
+            if itr1 >= itr2:
+                continue
+            join = [None] * output_join_length
+            join[0] = all_values[itr1]
+            for remains_participants in range(1, old_values_participants):
+                if itr1+remains_participants >= itr2:
+                    continue
+                join[remains_participants] = all_values[itr1+remains_participants]
+            join[-1] = all_values[itr2]
+            if None not in join:
+                yield tuple(join)
+
+
 
 
 def __create_partition(partition_length, classes_proportions, classes_proportions_data):
@@ -187,8 +210,7 @@ def __is_data_remaining(classes_proportions_data: dict):
             return True
     return False
 
+
 if __name__ == '__main__':
-    dataset = concat_datasets([pd.read_csv('../test_data/ar4.csv', index_col=False),
-                               pd.read_csv('../test_data/ar3.csv', index_col=False)])
-    subsets = create_uniqe_classes_subsets(dataset,'defects')
-    print(subsets)
+    for v in get_new_combinations(['a','b'],['E','F','r'], 3):
+        print(v)

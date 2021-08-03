@@ -28,10 +28,10 @@ class MLP(Basic_NN):
         normalization_layer = get_normalizer_layer(input_shape, x)
         model = Sequential([
             normalization_layer,
-            tf.keras.layers.Dense(hidden_layer_nodes, activation=activations.sigmoid, kernel_regularizer='l2', bias_regularizer='l2' ),
+            tf.keras.layers.Dense(hidden_layer_nodes, activation=activations.sigmoid ),
             tf.keras.layers.Dense(2, activation=activations.softmax)
         ])
-        #,kernel_initializer=dense_initializer
+        #, kernel_regularizer='l2', bias_regularizer='l2'
         opt= optimizers.RMSprop(learning_rate=lr, momentum=momentum,decay=decay)
         #opt = optimizers.SGD(learning_rate=lr, momentum=momentum, decay=decay)
         #opt= Adam(learning_rate=params.get('learning_rate', 0.1), decay=params.get('decay',0.1), amsgrad=True)
@@ -42,6 +42,7 @@ class MLP(Basic_NN):
         return model
 
     def _train_model( self, x, y, x_val, y_val, model,callbacks=[] ):
+        before = model.get_layer(index=1).get_weights()
         params = self.model_params
         epochs = params.get('epochs',2000)
         batch_size = params.get('batch_size', 10)
@@ -55,5 +56,6 @@ class MLP(Basic_NN):
         early_stop_callback = EarlyStopping(monitor=stop_monitor_metrics, patience=patience,verbose=2, restore_best_weights=True, min_delta=min_delta)
         callbacks.append(early_stop_callback)
         train_history = model.fit(x, y, epochs=epochs,batch_size=batch_size,validation_data =(x_val, y_val), callbacks=callbacks )
-
+        after = model.get_layer(index=1).get_weights()
+        print('before training ', before, '\n', 'after training ', after)
         return train_history

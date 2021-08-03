@@ -28,8 +28,9 @@ class Basic_NN:
     def _build_model( self, x, y):
         pass
 
-    def train_model( self,x,y , **kwargs):
-        self._model = self._build_model(x,y)
+    def train_model( self,x,y , build_model=True, **kwargs):
+        if build_model:
+            self._model = self._build_model(x,y)
         x, y, (true_validation_x, true_validation_y), (false_validation_x, false_validation_y) = \
             get_value_wise_subsets(x, y, ([0, 1], 0.1), ([1, 0], 0.1))
         x_val = np.concatenate((true_validation_x, false_validation_x), axis=0)
@@ -59,7 +60,7 @@ class Basic_NN:
         '''
         try:
             model_path = path.join(model_path, self.identifier)
-            self._model= tf.keras.models.load_model(model_path)
+            self._model = tf.keras.models.load_model(model_path)
             with open(model_path+'.json', 'r') as model_json:
                 obj = json.load(model_json)
             self.model_params = obj['model_params']
@@ -74,7 +75,7 @@ class Basic_NN:
     def save( self, model_path  ):
         if self._model:
             os.makedirs(path.join(model_path, self.identifier), exist_ok=True)
-            self._model.save(path.join(model_path, self.identifier))
+            self._model.save(path.join(model_path, self.identifier), save_format='tf')
             self.create_object(model_path)
             if self.do_visualize:
                 self.visualize(fs.join(model_path, self.identifier + '.jpg'),
@@ -98,14 +99,12 @@ class Basic_NN:
         scores = self._model.evaluate(x, y, verbose=0)
         return scores[1]
 
-    @Timer(text="RFBN predict in {:.2f} seconds")
     def predict_with_membership_degree( self, *x_instances ):
         predictions = self._model.predict(self.x_objects_to_array(*x_instances))
         class_arr = [False, True]
         result_predictions = []
         for p in predictions:
             result_predictions.append(self.build_prediction_object(class_arr, p))
-        #LOGGER.debug('prediction model [%s] test values [%s] prediction %s', self.identifier, *x_instances, result_predictions)
         return result_predictions
 
     def predict_dataset_with_membership_degree( self, *args ):

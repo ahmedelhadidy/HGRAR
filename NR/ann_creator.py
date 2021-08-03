@@ -7,7 +7,8 @@ from utils import filesystem as fs
 from NR.nural_network import RFBN_MODELS_PATH, MLP_MODELS_PATH
 from itertools import combinations
 import logging
-
+import numpy as np
+import sys
 LOGGER = logging.getLogger(__name__)
 
 
@@ -28,12 +29,7 @@ def create_ANN_models( model_path, use_case, dataset, features_col_names, class_
     '''
     models = []
     ohenc = OneHotEncoder([False, True])
-    if balanced_buckets:
-        balanced_sets = util.create_balanced_buckets(dataset,class_col_name)
-        if merge_buckets:
-            balanced_sets = [util.concat_datasets(balanced_sets)]
-    else:
-        balanced_sets=[dataset]
+    balanced_sets = _buckets(dataset, class_col_name, balanced_buckets=balanced_buckets, merge_buckets=merge_buckets)
     perceptron_template = 'perceptron_{}_{}_{}##{}'
     rfbn_template = 'rfbn_{}_{}_{}##{}'
     counter=1
@@ -50,15 +46,52 @@ def create_ANN_models( model_path, use_case, dataset, features_col_names, class_
             y = ohenc.encode(balanced_set[class_col_name].tolist())
             if 'ALL' in use_nn_types or MLP.__name__ in use_nn_types:
                 mlp = _get_nn_model(x, y, model_path, [f1, f2], perceptron_model_name, MLP, nn_model_strategy, visualise= True, **perceptron_init_param )
-                if mlp.is_metrics_gt(('recall',0.65), ('val_recall',0.6 ), ('precision',0.65 ), ('val_precision', 0.6)) :
-                    models.append(mlp)
+                #if mlp.is_metrics_gt(('recall',0.65), ('val_recall',0.6 ), ('precision',0.65 ), ('val_precision', 0.6)) :
+                models.append(mlp)
             if 'ALL' in use_nn_types or RFBN.__name__ in use_nn_types:
                 rfbn = _get_nn_model(x, y, model_path, [f1, f2], rbf_model_name, RFBN, nn_model_strategy, visualise= True, **rfbn_init_param )
-                if rfbn.is_metrics_gt(('recall',0.65), ('val_recall',0.6 ), ('precision',0.65 ), ('val_precision', 0.6)):
-                    models.append(rfbn)
+                #if rfbn.is_metrics_gt(('recall',0.65), ('val_recall',0.6 ), ('precision',0.65 ), ('val_precision', 0.6)):
+                models.append(rfbn)
 
         counter+=1
     return models
+
+def extend_ANN_models_training( model_path, dataset, features_col_names, class_col_name,  balanced_buckets=True ):
+    '''
+    extend nn models training on new data
+    :param model_path:
+    :param dataset:
+    :param features_col_names:
+    :param class_col_name:
+    :param balanced_buckets:
+    :param merge_buckets:
+    :return:
+    '''
+    ohenc = OneHotEncoder([False, True])
+    balanced_set = _buckets(dataset, class_col_name, balanced_buckets=balanced_buckets, merge_buckets=True)[0]
+    saved_models_dirs = fs.get_all_directories_contains(model_path , 'saved_model.pb')
+    loaded_models = []
+    for saved_models_dir in saved_models_dirs:
+        remains, model_name = fs.split(saved_models_dir)
+        _, model_type_dir = fs.split(remains)
+        if MLP.__name__.lower()+'_models' == model_type_dir:
+            model_type = MLP
+        elif RFBN.__name__.lower()+'_models' == model_type_dir:
+            model_type = RFBN
+        else:
+            raise Exception('model saved sub dir %s does not match any model type '% model_type_dir)
+        m = _get_nn_model(None, None, features_col_names, model_name, model_type,'just_load')
+        if m:
+            loaded_models.append(m)
+    LOGGER.debug('loaded : %d models for retraining ', len(loaded_models))
+    for f1, f2 in combinations(features_col_names, 2):
+        LOGGER.debug('retrain models on features : [ %s , %s ]', f1, f2)
+        x = np.asarray(balanced_set[[f1, f2]])
+        y = ohenc.encode(balanced_set[class_col_name].tolist())
+        for model in loaded_models:
+            if model.is_trained_on(f1, f2):
+                LOGGER.debug('retraining model : %s on new data', model.identifier)
+                model.train_model(x, y, build_model=False)
 
 
 def _get_nn_model(x,y, run_path, features_names, model_name, model_type, nn_model_strategy, visualise=False, **kwargs):
@@ -70,15 +103,17 @@ def _get_nn_model(x,y, run_path, features_names, model_name, model_type, nn_mode
         model = RFBN(model_name, features_names, visualize=visualise, **kwargs)
         path = fs.join(run_path, RFBN_MODELS_PATH)
 
-    if nn_model_strategy in ['reuse','train']:
+    if nn_model_strategy in ['reuse','train', 'just_load']:
         is_loaded = model.load_models(path)
         if is_loaded:
-            if nn_model_strategy == 'reuse':
+            if nn_model_strategy in ('reuse','just_load'):
                 return model
             else:
-                model.train_model(x, y, tensorboard_dir=path)
+                model.train_model(x, y, build_model=False, tensorboard_dir=path)
                 model.save(path)
         else:
+            if nn_model_strategy == 'just_load':
+                return None
             fs.delete(path, model_name)
             model.train_model(x, y, tensorboard_dir=path)
             model.save(path)
@@ -91,89 +126,13 @@ def _get_nn_model(x,y, run_path, features_names, model_name, model_type, nn_mode
     return model
 
 
-
-import matplotlib.pyplot as plt
-import numpy as np
-import matplotlib
-
-def visualize(rbf,data_set,features_columns,class_column):
-
-    x = data_set[features_columns[0]]
-    y = data_set[features_columns[1]]
-    c = data_set[class_column]
-    centers = rbf.train_history.model.get_layer(name='rbf_layer_name').weights[0].numpy()
-    cx = centers[:,0]
-    cy = centers[:,1]
-    colors = ['red', 'green']
-
-    fig1 = plt.figure(figsize=(4, 4) )
-    plt.scatter(x, y, c=c, cmap=matplotlib.colors.ListedColormap(colors))
-    plt.scatter(cx, cy , color='b')
-    plt.pause(0.05)
-    cb = plt.colorbar()
-    loc = np.arange(0, max(c), max(c) / float(len(colors)))
-    cb.set_ticks(loc)
-    cb.set_ticklabels(colors)
+def _buckets(dataset, class_col_name,balanced_buckets= True, merge_buckets= False):
+    if balanced_buckets:
+        balanced_sets = util.create_balanced_buckets(dataset,class_col_name)
+        if merge_buckets:
+            balanced_sets = [util.concat_datasets(balanced_sets)]
+    else:
+        balanced_sets=[dataset]
+    return balanced_sets
 
 
-import sys
-if __name__ == '__main__':
-    np.set_printoptions(threshold=sys.maxsize)
-    ohenc = OneHotEncoder([False, True])
-    features_columns = ['unique_operators', 'halstead_vocabulary', 'unique_operands']
-    class_column = 'defects'
-    data_set =  util.concat_datasets_files(
-        ['../test_data/ar1.csv', '../test_data/ar4.csv', '../test_data/ar5.csv', '../test_data/ar6.csv'])
-
-    test_data_set = pd.read_csv('../test_data/ar3.csv', index_col=False)
-    test_data_set_x, test_data_set_y = (test_data_set[features_columns], ohenc.encode(test_data_set[class_column]).tolist())
-
-    test_data_set_true = test_data_set[test_data_set[class_column] == True]
-    test_data_set_true_x, test_data_set_true_y = (test_data_set_true[features_columns], ohenc.encode(test_data_set_true[class_column].tolist()))
-
-    test_data_set_false = test_data_set[test_data_set[class_column] == False]
-    test_data_set_false_x, test_data_set_false_y = (test_data_set_false[features_columns], ohenc.encode(test_data_set_false[class_column].tolist()))
-
-    PERCEPTRON_INIT_PARAM = {
-        'learning_rate':0.1,
-        'momentum':0.1,
-        'decay':0.01,
-        'input_shape': (3,),
-        'use_bias': True,
-        'batch_size': 10,
-        'epochs': 400
-        ,'loss': 'mean_squared_error'
-    }
-
-    RFBN_INIT_PARAM = {
-        'betas': 0.5,
-        'centers': 2,
-        'input_shape': (3,),
-        'use_bias': True,
-        'batch_size': 50,
-        'epochs': 400,
-        'loss':'mean_squared_error'
-    }
-
-    trained_models = create_ANN_models(data_set,features_columns,class_column, perceptron_init_param=PERCEPTRON_INIT_PARAM, rfbn_init_param=RFBN_INIT_PARAM)
-
-    for tm in trained_models:
-        #if isinstance(tm, MLP):
-        #    continue
-        print('===================== model [{}]=================='.format(tm.identifier))
-        overall_score =  tm.score(np.asarray(test_data_set_x), np.asarray(test_data_set_y))
-        overall_predict = tm.predict_dataset_with_membership_degree(np.asarray(test_data_set_x))
-
-        #visualize(tm, test_data_set,features_columns,class_column)
-        true_class_score = tm.score(np.asarray(test_data_set_true_x), np.asarray(test_data_set_true_y))
-        true_class_predict = tm.predict_dataset_with_membership_degree(np.asarray(test_data_set_true_x))
-
-        false_class_score = tm.score(np.asarray(test_data_set_false_x), np.asarray(test_data_set_false_y))
-        false_class_predict = tm.predict_dataset_with_membership_degree(np.asarray(test_data_set_false_x))
-        print('over all score = ', overall_score)
-        print('true class score = ', true_class_score)
-        print('false class score = ', false_class_score)
-        predicted = tm.predict_dataset_with_membership_degree(np.asarray(test_data_set_x))
-        #for index, test_r in enumerate(test_data_set[features_columns + [class_column]].values):
-        #    print(test_r , ' -- prediction', predicted[index], '\n' )
-    plt.show()

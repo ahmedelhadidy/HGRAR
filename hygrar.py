@@ -46,7 +46,7 @@ class HyGRAR:
         self.run_id = run_id
         self.training_phase1_percenatge = d1_percentage
 
-    @Timer(text="hgrar training executed in {:.2f} seconds")
+    @Timer(text="hgrar training executed in {:.2f} seconds", name='HYGRAR_TRAIN', logger=LOGGER.debug)
     def train(self,x: pd.DataFrame,y: pd.DataFrame, use_nn_types= ('ALL'), balanced_buckets=True,merge_buckets = False):
         LOGGER.info('========================================================================')
         LOGGER.info('========================================================================')
@@ -67,7 +67,7 @@ class HyGRAR:
         for m in ann_models:
             operators.append(AnnOperator(OperatorType.FAULTY, m))
             operators.append(AnnOperator(OperatorType.NON_FAULTY, m))
-        grar_subset = util.create_uniqe_classes_subsets(pd.concat([d2_x,d2_y],axis=1), self.class_col)
+        grar_subset = util.create_uniqe_classes_subsets(util.concat_datasets([d2_x,d2_y],axis=1), self.class_col)
         LOGGER.info('hygrar training create non faulty detector grars ')
         self.interesting_grar_not_faulty = grar.start(grar_subset['False'].drop(columns=[self.class_col]), operators,
                                                   self.min_support,self.min_confidence,self.min_membership_degree,
@@ -79,7 +79,71 @@ class HyGRAR:
                                                   rule_max_length=self.rule_max_length, max_rule_count=None)
         self.faulty_rule_actual_length = self.interesting_grar_faulty[0][0].length
 
-    def split_to_d1_d2( self,x, y  ):
+    @Timer(text="hgrar extend_training executed in {:.2f} seconds")
+    def extend_training( self, x_not_extended: pd.DataFrame, y_not_extended: pd.DataFrame,
+                         x_extended: pd.DataFrame, y_extended: pd.DataFrame, extended_rules_max_length,
+                         use_nn_types=('ALL'), balanced_buckets=True,
+               merge_buckets=False , extend_old_grars_training=True ):
+        self.rule_max_length = extended_rules_max_length
+        extended_features_col = list([ext_col for ext_col in x_extended.columns.values if ext_col not in self.features_col])
+        (d1_x, d1_y), (d2_x, d2_y) = self.split_to_d1_d2(x_extended, y_extended)
+        nn_path = filesystem.join(HYGRAR_PERSISTENCE, self.run_id, self.use_case)
+        if extend_old_grars_training:
+            self._examine_old_grars(x_not_extended, y_not_extended,(d1_x, d1_y), (d2_x, d2_y),nn_path, balanced_buckets)
+
+        extended_ann_models = ann_creator.create_ANN_models(nn_path, self.use_case, pd.concat([d1_x, d1_y], axis=1),
+                                                   self.features_col + extended_features_col, self.class_col,
+                                                   use_nn_types=use_nn_types, balanced_buckets=balanced_buckets,
+                                                   merge_buckets=merge_buckets,
+                                                   nn_model_strategy=self.nn_model_creation_strategy,
+                                                   perceptron_init_param=self.PERCEPTRON_INIT_PARAM,
+                                                   rfbn_init_param=self.PFBN_INIT_PARAM)
+        extended_operators = []
+        for m in extended_ann_models:
+            extended_operators.append(AnnOperator(OperatorType.FAULTY, m))
+            extended_operators.append(AnnOperator(OperatorType.NON_FAULTY, m))
+
+        extended_d2 = util.create_uniqe_classes_subsets(util.concat_datasets([d2_x, d2_y], axis=1), self.class_col)
+
+        LOGGER.info('hygrar training extend non faulty detector grars ')
+        self.interesting_grar_not_faulty = grar.extend_grars(extended_d2['False'].drop(columns=[self.class_col]),self.interesting_grar_not_faulty, self.features_col,
+                                                             extended_features_col,extended_operators, self.not_faulty_rule_actual_length,
+                                                             self.min_support,self.min_confidence,self.min_membership_degree,
+                                                             rule_max_length=extended_rules_max_length, max_rule_count=None)
+
+        self.not_faulty_rule_actual_length = self.interesting_grar_not_faulty[0][0].length
+
+        LOGGER.info('hygrar training extend faulty detector grars ')
+        self.interesting_grar_faulty = grar.extend_grars(extended_d2['True'].drop(columns=[self.class_col]),self.interesting_grar_faulty, self.features_col,
+                                                             extended_features_col,extended_operators, self.faulty_rule_actual_length,
+                                                             self.min_support,self.min_confidence,self.min_membership_degree,
+                                                             rule_max_length=extended_rules_max_length, max_rule_count=None)
+        self.faulty_rule_actual_length = self.interesting_grar_faulty[0][0].length
+        self.features_col = self.features_col + extended_features_col
+
+
+    def _examine_old_grars(self,x_not_extended: pd.DataFrame, y_not_extended: pd.DataFrame,
+                         extended_d1, extended_d2 ,nn_path, balanced_buckets):
+
+        (d1_x, d1_y), (d2_x, d2_y) = extended_d1, extended_d2
+        ann_creator.extend_ANN_models_training(nn_path, pd.concat([d1_x, d1_y], axis=1), self.features_col,
+                                               self.class_col, balanced_buckets=balanced_buckets)
+        all_x = util.concat_datasets([x_not_extended, d2_x])
+        all_y = util.concat_datasets([y_not_extended, d2_y])
+        grar_subset = util.create_uniqe_classes_subsets(util.concat_datasets([all_x, all_y], axis=1), self.class_col)
+        self.interesting_grar_not_faulty = grar.rexamin_grars_membership(grar_subset['Fales'],
+                                                                         self.interesting_grar_not_faulty,
+                                                                         self.min_support, self.min_confidence,
+                                                                         self.min_membership_degree)
+        self.not_faulty_rule_actual_length = self.interesting_grar_not_faulty[0][0].length
+
+        self.interesting_grar_faulty = grar.rexamin_grars_membership(grar_subset['True'],
+                                                                     self.interesting_grar_faulty,
+                                                                     self.min_support, self.min_confidence,
+                                                                     self.min_membership_degree)
+        self.faulty_rule_actual_length = self.interesting_grar_faulty[0][0].length
+
+    def split_to_d1_d2( self,x, y):
         if self.training_phase1_percenatge == 0:
             return (x,y), (x,y)
         else:
@@ -109,8 +173,6 @@ class HyGRAR:
 
             return (pd.concat([ph1_x_true, ph1_x_false]), pd.concat([ph1_y_true, ph1_y_false])),\
                    (pd.concat([ph2_x_true, ph2_x_false]), pd.concat([ph2_y_true, ph2_y_false]))
-
-
 
     @Timer(text="hgrar predict executed in {:.2f} seconds")
     def predict(self, dataset :pd.DataFrame, grar_count, bulk=False):
@@ -147,11 +209,11 @@ class HyGRAR:
                 r_obj = matrix.create_prediction_obj(row_data=row.values, row_data_columns=dataset.columns.values,
                                                      true_class=row[self.class_col], prediction=faulty)
                 predictions.append(r_obj)
-                if faulty != row[self.class_col]:
-                    LOGGER.debug('\n\n data row %s ', str(row.values))
-                    logging.debug('Faulty grar distance = %f', f_dist)
-                    logging.debug('Non Faulty grar distance = %f', nf_dist)
-                    LOGGER.debug('wrong prediction')
+                # if faulty != row[self.class_col]:
+                #     LOGGER.debug('\n\n data row %s ', str(row.values))
+                #     logging.debug('Faulty grar distance = %f', f_dist)
+                #     logging.debug('Non Faulty grar distance = %f', nf_dist)
+                #     LOGGER.debug('wrong prediction')
             return predictions
 
     def save_grars( self ):

@@ -62,12 +62,9 @@ class RBFLayer(Layer):
         C = K.expand_dims(self.centers)
         H = K.transpose(C-K.transpose(x))
         power = -self.betas * K.sum(H**2, axis=1)
-        #r = tf.minimum(K.exp(power), sys.float_info.max)
         r = K.exp(power)
         if self.fixed_centers:
             r = tf.matmul(r, self.training_weights)
-        #tf.print('input:',x,'x_T:',K.transpose(x),'centers:',self.centers,'c_expan:',C,'minus:',H,'beta:',self.betas,
-        #         'power:',power,'output:',r,sep='\n', summarize=-1)
         return r
 
 

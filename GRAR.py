@@ -7,6 +7,7 @@ from model.grar.arithmetic_operator import ArithmeticOperator
 from model.grar.operator import Operator
 import model.grar.gRule as gRule
 from itertools import combinations
+from utils.datapartitional import get_new_combinations
 import logging
 
 LOGGER = logging.getLogger(__name__)
@@ -35,6 +36,30 @@ def start(dataset, operators, min_s, min_c, min_membership, rule_max_length = No
     return final_interesting_r
 
 
+def extend_grars(extended_dateset, not_extended_grars, not_extended_features, extended_features, extended_operators,
+                 current_grule_length, min_s, min_c, min_membership, rule_max_length = None , max_rule_count= None ):
+    adaptive_rules = not_extended_grars.copy()
+    candidate_rules = __generate_initial_candidates2(not_extended_features, extended_features, current_grule_length,
+                                                     extended_operators)
+    candidate_rules = __get_max_candidate_rules_count(candidate_rules, max_rule_count)
+    LOGGER.info('initial candidates count is %d ' % len(candidate_rules))
+    interesting_r = __scan_get_interesting_rules(candidate_rules, extended_dateset, min_s, min_c, min_membership)
+    LOGGER.info('interesting rules of length %d count is %d ' % (current_grule_length+1, len(interesting_r)))
+    adaptive_rules.extend(interesting_r)
+    k = current_grule_length
+    m = len(extended_dateset.columns) if not rule_max_length else rule_max_length
+    while len(interesting_r) > 1 and k < m:
+        candidate_rules = __generate_new_candidates(list([r[0] for r in adaptive_rules]), adaptive_rules[0][0].length+1)
+        candidate_rules = __get_max_candidate_rules_count(candidate_rules, max_rule_count)
+        LOGGER.info('candidates of length %d count is %d ' % (k+1,len(candidate_rules)))
+        interesting_r = __scan_get_interesting_rules(candidate_rules, extended_dateset, min_s, min_c, min_membership)
+        LOGGER.info('interesting rules of length %d count is %d ' % (k+1, len(interesting_r)))
+        if len(interesting_r) > 0:
+            adaptive_rules = interesting_r
+        k += 1
+    return adaptive_rules
+
+
 def __get_max_candidate_rules_count(interesting_rules, max_count):
     if not max_count:
         return interesting_rules
@@ -52,6 +77,16 @@ def __generate_initial_candidates(dataset, operators):
                        for op in operators if op.operator_type != OperatorType.NE and op.support_features(item1, item2)
 
     ])
+    return cand_rules
+
+
+def __generate_initial_candidates2(old_features, new_features, output_rule_length, operators):
+    for features in get_new_combinations(old_features, new_features,output_rule_length):
+        cand_rules = list([__create_binary_rule(item1, item2, op)
+                           for item1, item2 in combinations(features,2)
+                           for op in operators if op.operator_type != OperatorType.NE and op.support_features(item1, item2)
+
+        ])
     return cand_rules
 
 
@@ -144,6 +179,17 @@ def __generate_new_candidates(grules, new_length):
                 LOGGER.debug('not marble grule : %s and grule : %s ', str(rule1), str(rule2))
 
     return new_candidate
+
+
+def rexamin_grars_membership(dataset, grars, min_s, min_c, min_membership):
+    grules = list([grule for grule, _ in grars])
+    examined_grars = __scan_get_interesting_rules(grules, dataset,min_s, min_c, min_membership)
+    LOGGER.debug('examined : %d grars considered : %d grars' , len(grars), len(examined_grars))
+    return examined_grars
+
+
+def _get_grules(grars):
+    return list([grule for grule, _ in grars])
 
 
 def _is_terms_operands_compatible(*terms):
