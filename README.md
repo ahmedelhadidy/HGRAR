@@ -9,6 +9,9 @@ Package dependency management done using pipenv , so when you first download thi
 The Experiments start by running `experiment.py` .
 
 Package NR contains all Neural Network models and custom code
+
 Package model contains all GRAR implementations
+
 Package utils contains some utils functionalities 
+
 Module hygrar.py is the bootstrap that implement HGRAR and AHGRAR   
