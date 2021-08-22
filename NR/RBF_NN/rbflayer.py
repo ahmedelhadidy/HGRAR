@@ -58,10 +58,19 @@ class RBFLayer(Layer):
 
         super(RBFLayer, self).build(input_shape)
 
-    def call(self, x):
+    # def call(self, x):
+    #     C = K.expand_dims(self.centers)
+    #     H = K.transpose(C-K.transpose(x))
+    #     power = -self.betas * K.sum(H**2, axis=1)
+    #     r = K.exp(power)
+    #     if self.fixed_centers:
+    #         r = tf.matmul(r, self.training_weights)
+    #     return r
+
+    def call( self, x ):
         C = K.expand_dims(self.centers)
-        H = K.transpose(C-K.transpose(x))
-        power = -self.betas * K.sum(H**2, axis=1)
+        H = K.transpose(C - K.transpose(x))
+        power = - 0.5 * K.sum((H / self.betas)**2, axis=1)
         r = K.exp(power)
         if self.fixed_centers:
             r = tf.matmul(r, self.training_weights)

@@ -32,9 +32,9 @@ class MLP(Basic_NN):
             tf.keras.layers.Dense(2, activation=activations.softmax)
         ])
         #, kernel_regularizer='l2', bias_regularizer='l2'
-        opt= optimizers.RMSprop(learning_rate=lr, momentum=momentum,decay=decay)
+        #opt= optimizers.RMSprop(learning_rate=lr, momentum=momentum,decay=decay)
         #opt = optimizers.SGD(learning_rate=lr, momentum=momentum, decay=decay)
-        #opt= Adam(learning_rate=params.get('learning_rate', 0.1), decay=params.get('decay',0.1), amsgrad=True)
+        opt= optimizers.Adam(learning_rate=params.get('learning_rate', 0.1), decay=params.get('decay',0.1), amsgrad=True)
         #opt = optimizers.SGD(learning_rate=lr, momentum=momentum, decay=decay)
 
         model.compile(loss=loss,metrics=['accuracy', m.Precision(name='precision'),m.Recall(name='recall')],optimizer=opt, run_eagerly=False)

@@ -182,7 +182,11 @@ def get_new_combinations(old_values:[], new_values:[], output_join_length):
                 yield tuple(join)
 
 
-
+def transform_dataset( dataset ):
+    faulty = dataset['bug'] > 0
+    dataset.drop(columns='bug')
+    dataset['bug'] = faulty
+    return dataset
 
 def __create_partition(partition_length, classes_proportions, classes_proportions_data):
     partition_rows = []

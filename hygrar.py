@@ -46,7 +46,7 @@ class HyGRAR:
         self.run_id = run_id
         self.training_phase1_percenatge = d1_percentage
 
-    @Timer(text="hgrar training executed in {:.2f} seconds", name='HYGRAR_TRAIN', logger=LOGGER.debug)
+    @Timer(text="hgrar training executed in {:.2f} seconds")
     def train(self,x: pd.DataFrame,y: pd.DataFrame, use_nn_types= ('ALL'), balanced_buckets=True,merge_buckets = False):
         LOGGER.info('========================================================================')
         LOGGER.info('========================================================================')

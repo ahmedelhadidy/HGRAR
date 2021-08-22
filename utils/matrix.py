@@ -96,14 +96,9 @@ class Matrix:
 
     def precision(self):
         try:
-            total_positiv = self.__matrix[CONFUSION_MATRIX_TOT_POSITIVE]
-            total_predicted_positive = self.__matrix[CONFUSION_MATRIX_TOT_PREDICTED_POSITIVE]
-            if total_predicted_positive == 0:
-                if total_positiv == 0:
-                    return 1
-                else:
-                    return 0
-            return  total_positiv/total_predicted_positive
+            true_pos = self.__matrix[CONFUSION_MATRIX_TRUE_POSITIVE]
+            false_pos = self.__matrix[CONFUSION_MATRIX_FALSE_POSITIVE]
+            return  true_pos/(true_pos+false_pos)
         except ZeroDivisionError:
             return None
 

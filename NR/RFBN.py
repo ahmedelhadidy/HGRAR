@@ -27,7 +27,7 @@ class RFBN(Basic_NN):
         input_shape = params.get('input_shape', (2,))
         alpha = params.get('alfa', 0.5)
         p = params.get('p', 1)
-        centers = params.pop('centers', 2)
+        centers = params.get('centers', 2)
         loss_str = params.get('loss', 'binary_crossentropy')
         loss = tf.keras.losses.get(loss_str)
         normalization_layer = get_normalizer_layer(input_shape,x, mean=0, variance=1)
@@ -40,8 +40,8 @@ class RFBN(Basic_NN):
 
         model = Sequential([
             normalization_layer,
-            RBFLayer(centers, betas= alpha,name=self.RBF_LAYER_NAME, initializer=rbf_init, dtype=tf.dtypes.double),
-            #RBFLayer2(centers, alpha=alpha, p=p,  name=self.RBF_LAYER_NAME, initializer=rbf_init, dtype=tf.dtypes.double),
+            #RBFLayer(centers, betas= alpha,name=self.RBF_LAYER_NAME, initializer=rbf_init, dtype=tf.dtypes.double),
+            RBFLayer2(centers, alpha=alpha, p=p,  name=self.RBF_LAYER_NAME, initializer=rbf_init, dtype=tf.dtypes.double),
             Dense(2,dtype=tf.dtypes.double,  activation=activations.softmax)
         ])
         model.compile(loss=loss, optimizer=opt,  metrics=['accuracy',m.Recall(name='recall'), m.Precision(name='precision')], run_eagerly=False)
@@ -87,9 +87,9 @@ class RFBN(Basic_NN):
         decay = params.get('decay', 0.1)
         momentum = params.get('momentum', 0.0)
         #opt = RMSprop(learning_rate=lr, momentum=momentum, decay=decay)
-        #opt = Adam(learning_rate=lr, decay = decay, amsgrad=True)
+        opt = Adam(learning_rate=lr, decay = decay, amsgrad=True)
         #opt = SGD(learning_rate=lr, momentum=momentum, decay=decay)
-        opt = RMSprop()
+        #opt = RMSprop()
         return opt
 
     def __get_rbf_initializer( self,x ):
